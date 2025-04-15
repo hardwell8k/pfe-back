@@ -12,8 +12,8 @@ const addEquipment = async(req,res)=>{
 
         const decoded_token = jwt.decode(token);
         
-        const query = 'INSERT INTO equipement (nom,code_bar,"RFID",details,category,type,account_id) VALUES ($1,$2,$3,$4,$5,$6,$7)';
-        const values = [nom,code_bar,RFID,details,category,type,decoded_token.id];
+        const query = 'INSERT INTO equipement (nom,code_bar,"RFID",details,type,account_id,category) VALUES ($1,$2,$3,$4,$5,$6,(SELECT "ID" FROM category WHERE nom = $7::text))';
+        const values = [nom,code_bar,RFID,details,type,decoded_token.id,category];
 
         await pool.query(query,values);
 
