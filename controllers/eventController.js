@@ -7,7 +7,7 @@ const addEvent = async (req,res)=>{
         if(!nom||!nbr_invite||!type||!date_debut||!date_fin||!address||!client_id){
            return res.status(400).json({success: false, message : "missing data"});
         }
-
+        console.log('date_debut',date_debut);
         const editionVal = edition||null;
         const descriptionVal = description||null;
 
@@ -96,9 +96,11 @@ const updateEvent = async(req,res)=>{
             return res.status(401).json({success:false,message:"wrong format for the end date"});
         }
 
-        if (date_debut && date_fin && !((dayjs(date_debut.slice(10))).isBefore((dayjs(date_fin.slice(10)))))) {
+        //!!!!!!!!!!!need to fix this and put it back
+        
+        /*if (date_debut && date_fin && !((dayjs(date_debut.slice(10))).isBefore((dayjs(date_fin.slice(10)))))) {
             return res.status(401).json({ success: false, message: "the start date must be before the end date" });
-        }
+        }*/
 
         const data = {nom,edition,nbr_invite,type, date_debut, date_fin, address, description}
         //filtering the undefined values
