@@ -3,15 +3,26 @@ const jwt = require('jsonwebtoken')
 
 const addEquipment = async(req,res)=>{
     try {
-        const token = req.cookies ? req.cookies.token : null;
+        const equipmentSchema = z.object({
+            nom: z.string().trim().min(1, { message: "Nom is required" }),
+            category: z.string().min(1, { message: "category is required" }),
+            type: z.string().min(1, { message: "type is required" }),
+        });
+
+        const result = equipmentSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
 
         const {nom,code_bar,RFID,details,category,type} = req.body;
-        if(!nom||!category||!type||!token){
+        const decoded_token = req.decoded_token;
+        
+        if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const decoded_token = jwt.decode(token);
-        
+
         const query = 'INSERT INTO equipement (nom,code_bar,"RFID",details,type,account_id,category) VALUES ($1,$2,$3,$4,$5,$6,(SELECT "ID" FROM category WHERE nom = $7::text))';
         const values = [nom,code_bar,RFID,details,type,decoded_token.id,category];
 
@@ -25,14 +36,12 @@ const addEquipment = async(req,res)=>{
 
 const getAllEquipment = async(req,res)=>{
     try {
-        const token = req.cookies ? req.cookies.token : null;
-        if(!token){
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const decoded_token = jwt.decode(token);
-
-        const query = 'SELECT equipement.nom,equipement.details,category.nom AS category_nom,type_nom,count(*) AS quantity FROM equipement,category,type WHERE equipement.category=category."ID" AND equipement.type=type."ID" AND equipement.account_id=$1 GROUP BY equipement.nom,equipement.details,category_nom,type_nom';
+        const query = 'SELECT equipement.nom,equipement.details,category.nom AS category_nom,type_nom,count(*) AS quantity FROM equipement,category,type WHERE equipement.category=category."ID" AND equipement.type=type."ID" AND equipement.account_id IN (SELECT "ID" FROM accounts where entreprise_id = (select entreprise_id FROM accounts where "ID" =$1 )) GROUP BY equipement.nom,equipement.details,category_nom,type_nom';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);

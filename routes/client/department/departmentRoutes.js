@@ -1,5 +1,5 @@
 const express = require('express');
-const {addDepartment,getClientDepartments} = require('../controllers/departmentController');
+const {addDepartment,getClientDepartments} = require('../../../controllers/client/department/departmentController');
 
 const router = express.Router();
 

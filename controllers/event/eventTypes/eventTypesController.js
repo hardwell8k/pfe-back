@@ -1,10 +1,12 @@
-const pool = require('../dbConnection')
+const pool = require('../../../dbConnection');
 
 const getEventTypes = async (req,res)=>{
     try {
-
-        const querry = "SELECT nom FROM evenement_type";
-        const data = await pool.query(querry);
+        const decoded_token = req.decoded_token;
+        console.log("decoded_token id: ",JSON.stringify(decoded_token));
+        const querry = 'SELECT nom FROM evenement_type WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        const values = [decoded_token.id];
+        const data = await pool.query(querry,values);
         if(data){
             return res.status(200).json({success:true,data:data.rows});
         }
@@ -17,11 +19,13 @@ const getEventTypes = async (req,res)=>{
 const addEventType = async(req,res)=>{
     try {
         const {name} = req.body;
-        if(!name){
+        const decoded_token = req.decoded_token;
+        if(!name||!decoded_token.id){
             return res.status(400).json({success:false,message:"missing name"});
         }
-        const query = 'INSERT INTO evenement_type (nom) VALUES ($1)';
-        await pool.query(query,[name]);
+        const query = 'INSERT INTO evenement_type (nom,account_id) VALUES ($1,$2)';
+        const values = [name,decoded_token.id];
+        await pool.query(query,values);
 
         return res.status(200).json({success:true,message:"success"})
     } catch (error) {

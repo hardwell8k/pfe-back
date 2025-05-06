@@ -1,5 +1,5 @@
 const dayjs = require("dayjs");
-const pool = require("../dbConnection");
+const pool = require("../../dbConnection");
 
 const addEvent = async (req,res)=>{
     try{
@@ -8,6 +8,7 @@ const addEvent = async (req,res)=>{
            return res.status(400).json({success: false, message : "missing data"});
         }
         console.log('date_debut',date_debut);
+        
         const editionVal = edition||null;
         const descriptionVal = description||null;
 
@@ -36,33 +37,14 @@ const addEvent = async (req,res)=>{
         }
         
 
-        const querry = "INSERT INTO evenement (nom,type,edition,nbr_invite,description,date_debut,date_fin,address) values($1, $2, $3, $4, $5, $6, $7, $8)";
-        const values = [nom,type,editionVal,nbr_invite, descriptionVal, formatted_date_debut, formatted_date_fin, address];
+        const querry = "INSERT INTO evenement (nom,type,edition,nbr_invite,description,date_debut,date_fin,address,client_id) values($1, $2, $3, $4, $5, $6, $7, $8 ,$9)";
+        const values = [nom,type,editionVal,nbr_invite, descriptionVal, formatted_date_debut, formatted_date_fin, address,client_id];
 
         await pool.query(querry,values);
         return res.status(201).json({success: true, message : "event saved with success"});
     }catch(error){
         console.error("error while getting the events",error);
         res.status(500).json({success: false , message:"failed to save",err:error.message});
-    }
-}
-//problem with the time zone resulting in day-1
-const getUPcomingEvents = async (req,res)=>{
-    try{
-        const today = dayjs().format('YYYY-MM-DD');
-        //return res.status(300).json({success:false,message:"fuck dates ",today:today})
-
-        const query = 'SELECT * FROM evenement WHERE date_debut > ($1) ORDER BY date_debut';
-        const values = [today];
-
-        const data = await pool.query(query,values);
-        if(!data){
-            return res.status(400).json({"success":false , message:"failure"});
-        }
-        res.status(200).json({success:true , message:"success",data:data.rows});
-    }catch(error){
-        console.error("error while getting the events",error);
-        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
     }
 }
 
@@ -72,7 +54,7 @@ const updateEvent = async(req,res)=>{
     try {
         const {nom,edition,nbr_invite,type, date_debut, date_fin, address, description,client_id,ID} = req.body;
         //checking if the necessary data for the update are available
-        if(!ID||([nom,nbr_invite,type,date_debut,date_fin,address,edition,description,client_id].every((value)=>(value===undefined)))){
+        if(!ID||([nom,nbr_invite,type,date_debut,date_fin,address,edition,description,client_id,ID].every((value)=>(value===undefined)))){
            return res.status(400).json({success: false, message : "missing data"});
         }
 
@@ -102,7 +84,7 @@ const updateEvent = async(req,res)=>{
             return res.status(401).json({ success: false, message: "the start date must be before the end date" });
         }*/
 
-        const data = {nom,edition,nbr_invite,type, date_debut, date_fin, address, description}
+        const data = {nom,edition,nbr_invite,type, date_debut, date_fin, address, description,client_id}
         //filtering the undefined values
         const FilteredBody = Object.fromEntries(Object.entries(data).filter(([key,value])=>{  if((["date_debut","date_fin"].includes(key))&&value===""){return false};return (value!==undefined)}));//the "" pass through
 
@@ -117,7 +99,7 @@ const updateEvent = async(req,res)=>{
         //creating the sql query
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
         const query = `UPDATE evenement SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
-
+        console.log("query: ",query);
         await pool.query(query,values);
         return res.status(200).json({success:true , message:"success"});
 
@@ -145,4 +127,53 @@ const deleteEvent = async(req,res)=>{
     }
 }
 
-module.exports = {addEvent,updateEvent,deleteEvent,getUPcomingEvents};
+//problem with the time zone resulting in day-1
+const getUPcomingEvents = async (req,res)=>{
+    try{
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const today = dayjs().format('YYYY-MM-DDTHH:mm:ss');
+        //return res.status(300).json({success:false,message:"fuck dates ",today:today})
+
+        const query = 'SELECT * FROM evenement WHERE date_debut > ($1) AND client_id IN (SELECT "ID" FROM "Clients" WHERE account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))) ORDER BY date_debut';
+        const values = [today,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+const getEventsHistory = async(req,res)=>{
+    try{
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const today = dayjs().format('YYYY-MM-DDTHH:mm:ss');
+        //return res.status(300).json({success:false,message:"fuck dates ",today:today})
+
+        const query = 'SELECT e."ID",e.nom as event_nom,c.nom as client_nom,date_debut as date,e.type,num_tel,email FROM evenement e JOIN "Clients" c ON c."ID"=e.client_id WHERE e.date_fin < ($1) AND c.account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) ORDER BY date_debut';
+        const values = [today,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+module.exports = {addEvent,updateEvent,deleteEvent,getUPcomingEvents,getEventsHistory};
