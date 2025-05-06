@@ -1,5 +1,6 @@
 const pool = require('../../dbConnection');
-const jwt = require('jsonwebtoken')
+const jwt = require('jsonwebtoken');
+const {z} = require('zod');
 
 const addEquipment = async(req,res)=>{
     try {
@@ -7,6 +8,9 @@ const addEquipment = async(req,res)=>{
             nom: z.string().trim().min(1, { message: "Nom is required" }),
             category: z.string().min(1, { message: "category is required" }),
             type: z.string().min(1, { message: "type is required" }),
+            code_bar: z.string().min(1).optional(),
+            RFID: z.string().min(1).optional(),
+            details: z.string().min(1).optional(),
         });
 
         const result = equipmentSchema.safeParse(req.body);
@@ -18,8 +22,13 @@ const addEquipment = async(req,res)=>{
         const {nom,code_bar,RFID,details,category,type} = req.body;
         const decoded_token = req.decoded_token;
         
-        if(!decoded_token){
-            return res.status(400).json({success:false,message:"missing data"});
+        if(!decoded_token.id||!decoded_token.role){
+            return res.status(400).json({ message:"missing data" });
+        }
+
+        const acceptedroles=["super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
         }
 
 
@@ -47,6 +56,41 @@ const getAllEquipment = async(req,res)=>{
         const data = await pool.query(query,values);
 
         return res.status(200).json({success : true, message: "equipment selected with success",data:data.rows});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
+
+const updateEquipment = async(req,res)=>{
+    try {
+        const equipmentSchema = z.object({
+            nom: z.string().trim().min(1, { message: "Nom is required" }),
+            category: z.string().min(1, { message: "category is required" }),
+            type: z.string().min(1, { message: "type is required" }),
+        });
+
+        const {ID,nom,domain,num_tel,email} = req.body;
+        if(!ID||([nom,domain,num_tel,email].every((value)=>(value===undefined||value==="")))){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const data = {nom,address,date_debut,date_fin,description,prix}
+
+        const FilteredBody = Object.fromEntries(Object.entries(data).filter(([key,value])=>(value!==undefined&&value!==null&&value!=="")));
+
+        const columns = Object.keys(FilteredBody);
+        const values = Object.values(FilteredBody);
+
+        values.push(ID);
+
+        const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
+        const query = `UPDATE "Client" SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
+
+        console.log("query: ",query);
+
+        await pool.query(query,values);
+
+        return res.status(200).json({success : true, message: "client added with success"});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
@@ -99,4 +143,4 @@ const addequipmentType = async()=>{
     }
 }
 
-module.exports={addEquipment,getAllEquipment}
+module.exports={addEquipment,updateEquipment,getAllEquipment}

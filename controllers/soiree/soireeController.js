@@ -6,11 +6,11 @@ const addSoiree = async(req,res)=>{
         const soireeSchema = z.object({
             nom: z.string().trim().min(1, { message: "Nom is required" }),
             address: z.string().min(1, { message: "Address is required" }),
-            duree: z.number().optional(),
             prix: z.number(),
             date: z.string().refine(val => !isNaN(new Date(val).getTime()), {
                 message: "Invalid start date format"
             }),
+            description: z.string().min().optional(),
             evenement_id: z.number().int(),
         });
 
@@ -19,13 +19,13 @@ const addSoiree = async(req,res)=>{
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-        const {nom,address,date,duree,prix,evenement_id,description} = req.body;
+        const {nom,address,date,prix,evenement_id,description} = req.body;
         
 
         //date validation
 
-        const query = 'INSERT INTO soire (nom,address,date,duree,description,prix,evenement_id) VALUES ($1,$2,$3,$4,$5,$6,$7)';
-        const values = [nom,address,date,duree,description,prix,evenement_id];
+        const query = 'INSERT INTO soire (nom,address,date,description,prix,evenement_id) VALUES ($1,$2,$3,$4,$5,$6,$7)';
+        const values = [nom,address,date,description,prix,evenement_id];
 
         await pool.query(query,values);
 
@@ -37,22 +37,18 @@ const addSoiree = async(req,res)=>{
 
 const updateSoiree = async(req,res)=>{
     try {
-        const {ID,nom,address,date,duree,description,prix} = req.body;
-        if(!ID||([nom,address,date,duree,description,prix].every((value)=>(value===undefined||value==="")))){
+        const {ID,nom,address,date,description,prix} = req.body;
+        if(!ID||([nom,address,date,description,prix].every((value)=>(value===undefined||value==="")))){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
         //date validation
 
-        if(duree&&Number.isNaN(Number(duree))){
-            return res.status(401).json({success:false,message:"duree doit etre un nombre"});
-        }
-
         if(prix&&Number.isNaN(Number(prix))){
             return res.status(401).json({success:false,message:"prix doit etre un nombre"});
         }
 
-        const data = {nom,address,date,duree,description,prix}
+        const data = {nom,address,date,description,prix}
 
         const FilteredBody = Object.fromEntries(Object.entries(data).filter(([key,value])=>(value!==undefined&&value!==null&&value!=="")));
 
@@ -105,7 +101,7 @@ const getAllSoirees = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = 'SELECT "ID",nom,address,date,duree,description,prix FROM soire WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN client_id IN (SELECT "ID" FROM "Clients" WHERE account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))))';
+        const query = 'SELECT "ID",nom,address,date,description,prix FROM soire WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN client_id IN (SELECT "ID" FROM "Clients" WHERE account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))))';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);

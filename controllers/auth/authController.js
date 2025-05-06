@@ -200,7 +200,7 @@ const deleteAccount = async (req,res)=>{
 
         const {ID} = req.body;
 
-        decoded_token= req.decoded_token;
+        const decoded_token= req.decoded_token;
 
         if(!decoded_token.id||!decoded_token.role){
             return res.status(400).json({ message:"missing data" });
