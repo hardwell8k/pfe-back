@@ -3,7 +3,7 @@ const pool = require('../../../dbConnection');
 const getEventTypes = async (req,res)=>{
     try {
         const decoded_token = req.decoded_token;
-        console.log("decoded_token id: ",JSON.stringify(decoded_token));
+        
         const querry = 'SELECT nom FROM evenement_type WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
         const values = [decoded_token.id];
         const data = await pool.query(querry,values);

@@ -138,8 +138,6 @@ const updateAccount = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-
-
         if(password){
             password = await bcrypt.hash(password,10);
         }
@@ -188,8 +186,9 @@ const updateAccount = async (req,res)=>{
 
 const deleteAccount = async (req,res)=>{
     try {
+        console.log("delete accounts reached");
         const deleteSchema = z.object({
-            ID: z.number().email({ message: "ID is required"}),
+            IDs: z.array(z.number().int()).min(1),
         });
 
         const result = deleteSchema.safeParse(req.body);
@@ -198,7 +197,7 @@ const deleteAccount = async (req,res)=>{
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {ID} = req.body;
+        const {IDs} = result.data;
 
         const decoded_token= req.decoded_token;
 
@@ -219,16 +218,16 @@ const deleteAccount = async (req,res)=>{
         }
 
 
-        const query = 'DELETE FROM accounts WHERE "ID"=$1 AND (role = ANY($2) OR "ID"=$3) AND entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$3)';
-        const values = [ID,acceptedroles,decoded_token.id];
+        const query = 'DELETE FROM accounts WHERE ("ID"= ANY ($1)) AND (role = ANY($2) OR "ID"=$3) AND entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$3)';
+        const values = [IDs,acceptedroles,decoded_token.id];
 
-        const dbresult = await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
 
-        if(dbresult.rowCount === 0){
-            return res.status(200).json({success : true, message: "no account was deleted"});
+        if(rowCount === 0){
+            return res.status(404).json({success : false, message: "no accounts where deleted"});
         }
 
-        return res.status(200).json({success : true, message: "account deleted with success"});
+        return res.status(200).json({success : true, message: "accounts deleted with success"});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }

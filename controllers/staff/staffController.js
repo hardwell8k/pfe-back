@@ -113,7 +113,6 @@ const deleteStaff = async(req,res)=>{
         }
 
         const {ID} = req.body;
-        console.log("data received to delete : ",JSON.stringify(req.body));
 
         const query = 'DELETE FROM staff WHERE "ID"=$1';
         const values = [ID];

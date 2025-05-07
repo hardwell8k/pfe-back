@@ -7,7 +7,6 @@ const addEvent = async (req,res)=>{
         if(!nom||!nbr_invite||!type||!date_debut||!date_fin||!address||!client_id){
            return res.status(400).json({success: false, message : "missing data"});
         }
-        console.log('date_debut',date_debut);
         
         const editionVal = edition||null;
         const descriptionVal = description||null;
@@ -99,7 +98,7 @@ const updateEvent = async(req,res)=>{
         //creating the sql query
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
         const query = `UPDATE evenement SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
-        console.log("query: ",query);
+       
         await pool.query(query,values);
         return res.status(200).json({success:true , message:"success"});
 

@@ -1,10 +1,11 @@
 const express = require('express');
 
-const {addEquipment,getAllEquipment} = require('../../controllers/equipement/equipementController');
+const {addEquipment,updateEquipment,getAllEquipment} = require('../../controllers/equipement/equipementController');
 
 const router = express.Router();
 
 router.post('/addEquipment',addEquipment);
-router.post('/getAllEquipment',getAllEquipment)
+router.put('/updateEquipment',updateEquipment);
+router.get('/getAllEquipment',getAllEquipment);
 
 module.exports = router;

@@ -60,8 +60,6 @@ const updateSoiree = async(req,res)=>{
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
         const query = `UPDATE soire SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
 
-        console.log("query: ",query);
-
         await pool.query(query,values);
 
         return res.status(200).json({success:true , message:"soiree updated with success"});

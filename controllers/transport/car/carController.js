@@ -50,8 +50,8 @@ const updateCar = async(req,res)=>{
             return res.status(400).json({success:false, errors: result.error.errors });
         }
 
-        const {nom,matricule,nbr_place,categorie,ID} = req.body;
-        if(!matricule&&!nbr_place&&!categorie&&!nom){
+        const {nom,matricule,nbr_place,categorie,ID} = result.data;
+        if(!ID||([nom,matricule,nbr_place,categorie].every((value)=>(value===undefined||value==="")))){
             return res.status(400).json({ success:false, message:"missing data"});
         }
 
@@ -67,7 +67,12 @@ const updateCar = async(req,res)=>{
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
         const query = `UPDATE car SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
 
-        await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
+
+        if(rowCount === 0){
+            return res.status(404).json({success:false , message:"no cars where updated"});
+        }
+
         return res.status(200).json({success:true , message:"car updated with success"});
     }catch(error){
         console.error("error while deleting the events",error);
@@ -78,7 +83,7 @@ const updateCar = async(req,res)=>{
 const deleteCar = async(req,res)=>{
     try{
         const carSchema = z.object({
-            ID: z.number().int(),          
+            IDs: z.array(z.number().int()).min(1),          
         });
 
         const result = carSchema.safeParse(req.body);
@@ -87,12 +92,17 @@ const deleteCar = async(req,res)=>{
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {ID} = req.body;
+        const {IDs} = result.data;
 
-        const query = 'DELETE FROM car where "ID"=$1';
-        const values = [ID];
+        const query = 'DELETE FROM car where "ID"=any($1)';
+        const values = [IDs];
 
-        await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
+
+        if(rowCount === 0){
+            return res.status(404).json({success:false , message:"no cars where deleted"});
+        }
+
         return res.status(200).json({success:true , message:"car deleted with success"});
     }catch(error){
         console.error("error while deleting the events",error);

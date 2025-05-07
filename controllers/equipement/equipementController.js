@@ -64,10 +64,16 @@ const getAllEquipment = async(req,res)=>{
 const updateEquipment = async(req,res)=>{
     try {
         const equipmentSchema = z.object({
-            nom: z.string().trim().min(1, { message: "Nom is required" }),
-            category: z.string().min(1, { message: "category is required" }),
-            type: z.string().min(1, { message: "type is required" }),
+            nom: z.string().trim().min(1, { message: "Nom is required" }).optional(),
+            category: z.string().min(1, { message: "category is required" }).optional(),
+            type: z.string().min(1, { message: "type is required" }).optional(),
         });
+
+        const result = equipmentSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
 
         const {ID,nom,domain,num_tel,email} = req.body;
         if(!ID||([nom,domain,num_tel,email].every((value)=>(value===undefined||value==="")))){
@@ -86,7 +92,6 @@ const updateEquipment = async(req,res)=>{
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
         const query = `UPDATE "Client" SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
 
-        console.log("query: ",query);
 
         await pool.query(query,values);
 
