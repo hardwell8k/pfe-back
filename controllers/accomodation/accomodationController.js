@@ -127,7 +127,7 @@ const getAllAccomodations = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = 'SELECT "ID",nom,type,number,address,date_debut,date_fin,description,prix FROM accomodation WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN client_id IN (SELECT "ID" FROM "Clients" WHERE account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))))';
+        const query = 'SELECT "ID",nom,type,number,address,date_debut,date_fin,description,prix FROM accomodation WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)))';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);

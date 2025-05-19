@@ -23,7 +23,7 @@ const addCar = async(req,res)=>{
             return res.status(400).json({ success:false, message:"missing data" });
         }
 
-        const query = 'INSERT INTO car (nom,matricule,nbr_place,categorie,account_id) VALUES ($1,$2,$3,$4,$5)';
+        const query = 'INSERT INTO car (nom,matricule,nbr_place,categorie,entreprise_id) VALUES ($1,$2,$3,$4,(SELECT entreprise_id FROM accounts WHERE "ID" = $5 LIMIT 1))';
         const values = [nom,matricule,nbr_place,categorie,decoded_token.id];
 
         await pool.query(query,values);
@@ -119,7 +119,7 @@ const getAllCars = async(req,res)=>{
             return res.status(400).json({ success:false, message:"missing data" });
         }
 
-        const query = 'SELECT "ID",nom,nbr_place,matricule,categorie FROM car WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1))';
+        const query = 'SELECT "ID",nom,nbr_place,matricule,categorie FROM car WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);

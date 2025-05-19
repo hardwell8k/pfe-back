@@ -1,10 +1,11 @@
 const pool = require('../../../dbConnection');
+const {z} = require("zod");
 
 const getEventTypes = async (req,res)=>{
     try {
         const decoded_token = req.decoded_token;
         
-        const querry = 'SELECT nom FROM evenement_type WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        const querry = 'SELECT nom FROM evenement_type WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)';
         const values = [decoded_token.id];
         const data = await pool.query(querry,values);
         if(data){
@@ -18,12 +19,24 @@ const getEventTypes = async (req,res)=>{
 
 const addEventType = async(req,res)=>{
     try {
-        const {name} = req.body;
+        const categorySchema = z.object({
+            name: z.string().trim().min(1, { message: "Nom is required" }),
+        });
+
+        const result = categorySchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {name} = result.data;
+        
         const decoded_token = req.decoded_token;
-        if(!name||!decoded_token.id){
+
+        if(!decoded_token.id){
             return res.status(400).json({success:false,message:"missing name"});
         }
-        const query = 'INSERT INTO evenement_type (nom,account_id) VALUES ($1,$2)';
+        const query = 'INSERT INTO evenement_type (nom,entreprise_id) VALUES ($1,(SELECT entreprise_id FROM accounts WHERE "ID"=$2))';
         const values = [name,decoded_token.id];
         await pool.query(query,values);
 

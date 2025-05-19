@@ -137,7 +137,7 @@ const getUPcomingEvents = async (req,res)=>{
         const today = dayjs().format('YYYY-MM-DDTHH:mm:ss');
         //return res.status(300).json({success:false,message:"fuck dates ",today:today})
 
-        const query = 'SELECT * FROM evenement WHERE date_debut > ($1) AND client_id IN (SELECT "ID" FROM "Clients" WHERE account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))) ORDER BY date_debut';
+        const query = 'SELECT * FROM evenement WHERE date_debut > ($1) AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) ORDER BY date_debut';
         const values = [today,decoded_token.id]; 
 
         const data = await pool.query(query,values);
@@ -161,7 +161,7 @@ const getEventsHistory = async(req,res)=>{
         const today = dayjs().format('YYYY-MM-DDTHH:mm:ss');
         //return res.status(300).json({success:false,message:"fuck dates ",today:today})
 
-        const query = 'SELECT e."ID",e.nom as event_nom,c.nom as client_nom,date_debut as date,e.type,num_tel,email FROM evenement e JOIN "Clients" c ON c."ID"=e.client_id WHERE e.date_fin < ($1) AND c.account_id IN(SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) ORDER BY date_debut';
+        const query = 'SELECT e."ID",e.nom as event_nom,c.nom as client_nom,date_debut as date,e.type,num_tel,email FROM evenement e JOIN "Clients" c ON c."ID"=e.client_id WHERE e.date_fin < ($1) AND c.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2) ORDER BY date_debut';
         const values = [today,decoded_token.id]; 
 
         const data = await pool.query(query,values);

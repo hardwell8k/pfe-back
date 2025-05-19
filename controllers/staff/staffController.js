@@ -27,7 +27,7 @@ const addStaff = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = "INSERT INTO staff (nom,prenom,num_tel,email,departement,role,team_id,account_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)";
+        const query = 'INSERT INTO staff (nom,prenom,num_tel,email,departement,role,team_id,entreprise_id) VALUES ($1,$2,$3,$4,$5,$6,$7,(SELECT entreprise_id FROM accounts WHERE "ID" = $8))';
         const values = [nom,prenom,num_tel,email,departement,role,team_id,decoded_token.id];
 
         await pool.query(query,values);
@@ -58,16 +58,13 @@ const updateStaff = async (req,res)=>{
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {nom,prenom,num_tel,email,departement,role,team,ID} = req.body;
+        const {nom,prenom,num_tel,email,departement,role,team,ID} = result.data;
 
         if(!ID||[nom,prenom,num_tel,email,departement,role,team].every((value)=>(value===undefined))){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
         //need to check for predetermened team names
-        /*if(team_id&&!Number.isInteger(Number(team_id))){
-            return res.status(401).json({success:false,message:"team id must be an integer"});
-        }*/
 
         
         const data = {nom,prenom,num_tel,email,departement,role}
@@ -132,7 +129,7 @@ const getAllStaff = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = 'SELECT staff."ID",staff.nom,staff.prenom,staff.email,staff.departement,staff.num_tel,staff.role,team.nom AS team_nom FROM staff LEFT JOIN team ON staff.team_id = team."ID" WHERE staff.account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        const query = 'SELECT staff."ID",staff.nom,staff.prenom,staff.email,staff.departement,staff.num_tel,staff.role,team.nom AS team_nom FROM staff LEFT JOIN team ON staff.team_id = team."ID" WHERE staff.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
@@ -145,7 +142,64 @@ const getAllStaff = async (req,res)=>{
     }
 }
 
+const getParticipation = async (req,res)=>{
+    try {
+        const decoded_token = req.decoded_token;
+
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT staff_id,date_debut FROM "Liste_staff" WHERE staff_id IN (SELECT "ID" FROM staff WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)) AND date_debut BETWEEN date_trunc('month', CURRENT_DATE) - INTERVAL '5 months' AND CURRENT_DATE`;
+        const values = [decoded_token.id];
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        return res.status(200).json({success: true, message : "participation fetched with success",data:data.rows});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
+
+const addStaffToEvent = async (req,res)=>{
+    try {
+        const staffSchema = z.object({
+            staff_id: z.number().int().min(1),
+            event_id: z.number().int().min(1),
+            date_debut: z.string().refine(val => !isNaN(new Date(val).getTime()), {
+                message: "Invalid start date format"
+            }),
+            date_fin: z.string().refine(val => !isNaN(new Date(val).getTime()), {
+                message: "Invalid end date format"
+            }),
+        });
+
+        const result = staffSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {staff_id,event_id,date_debut,date_fin} = result.data;
+        
+
+        const query = 'INSERT INTO "Liste_staff" (staff_id,evenement_id,date_debut,date_fin) VALUES ($1,$2,$3,$4)';
+        const values = [staff_id,event_id,date_debut,date_fin];
+
+        const {rowCount} = await pool.query(query,values);
+
+        if(rowCount === 0){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        return res.status(200).json({success: true, message : "staffs added to the event with success"});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
 
 
 
-module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff}
+
+module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,addStaffToEvent}

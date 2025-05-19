@@ -1,5 +1,6 @@
 const pool = require("../../../dbConnection");
 const jwt = require('jsonwebtoken');
+const {z} = require("zod");
 
 const addTeam = async (req,res)=>{
     try {
@@ -14,16 +15,20 @@ const addTeam = async (req,res)=>{
         }
 
         const decoded_token = req.decoded_token ;
-        const {nom} = req.body;
+        const {nom} = result.data;
 
         if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = "INSERT INTO team (nom,account_id) VALUES ($1,$2)";
+        const query = 'INSERT INTO team (nom,entreprise_id) VALUES ($1,(SELECT entreprise_id FROm accounts WHERE "ID"=$2))';
         const values = [nom,decoded_token.id];
 
-        await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
+
+        if(rowCount === 0){
+            return res.status(404).json({success : flase, message: "no team was added"});
+        }
 
         return res.status(200).json({success : true, message: "team added with success"});
     } catch (error) {
@@ -59,22 +64,23 @@ const updateTeam = async (req,res)=>{
 
 const deleteTeam = async(req,res)=>{
     try {
-        const token = req.cookies ? req.cookies.token : null;
-        const {ID} = req.body;
+        const teamSchema = z.object({
+            IDs: z.array(z.number().int()).min(1),
+        });
 
-        if(!token||!ID){
-            return res.status(400).json({success:false,message:"missing data"});
+        const result = teamSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
         }
 
-        if(!Number.isInteger(Number(ID))||Number(ID)<=0){
-            return res.status(400).json({ success: false, message: "Invalid ID" });
-        }
+        const {IDs} = result.data;
 
-        const query = 'DELETE FROM team WHERE "ID"=$1';
-        const values = [ID];
+        const query = 'DELETE FROM team WHERE "ID"= ANY($1)';
+        const values = [IDs];
 
         await pool.query(query,values);
-        return res.status(200).json({success: true, message : "team deleted with success"});
+        return res.status(200).json({success: true, message : "teams deleted with success"});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
@@ -88,7 +94,7 @@ const getAllTeams = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = 'SELECT * FROM team WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        const query = 'SELECT * FROM team WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
@@ -108,8 +114,8 @@ const getAllStaffForTeams = async(req,res)=>{
         if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
-
-        const query = 'SELECT * FROM staff WHERE team_id IS NOT NULL AND account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        //old query: const query = 'SELECT * FROM staff WHERE team_id IS NOT NULL AND account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        const query = 'SELECT * FROM staff WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
@@ -122,7 +128,47 @@ const getAllStaffForTeams = async(req,res)=>{
     }
 }
 
+const addStaffToTeam = async (req,res)=>{
+    try {
+        const teamSchema = z.object({
+            staffIds: z.array(z.number().int()).min(1),
+            teamId : z.number().int(),
+        });
+
+        const result = teamSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+
+        let {staffIds,teamId} = result.data;
+        if(teamId === 0){
+            teamId = null;
+        }
+        //teamId === 0 ? null:teamId;
+        const decoded_token = req.decoded_token ;
+        
+
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = 'UPDATE staff SET team_id = $1 WHERE "ID" = ANY($2) ';
+        const values = [teamId,staffIds];
+
+        const {rowCount} = await pool.query(query,values);
+
+        if(rowCount === 0){
+            return res.status(404).json({success : flase, message: "no staff were added"});
+        }
+
+        return res.status(200).json({success : true, message: "staff added with success"});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
 
 
 
-module.exports = {addTeam,updateTeam,deleteTeam,getAllTeams,getAllStaffForTeams}
+module.exports = {addTeam,updateTeam,deleteTeam,getAllTeams,getAllStaffForTeams,addStaffToTeam}

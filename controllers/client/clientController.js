@@ -1,4 +1,5 @@
 const pool = require('../../dbConnection');
+const {z} = require("zod");
 
 
 const addClient = async(req,res)=>{
@@ -6,24 +7,24 @@ const addClient = async(req,res)=>{
         const clientSchema = z.object({
             nom: z.string().trim().min(1, { message: "Nom is required" }),
             domain: z.string().min(1, { message: "Address is required" }),
-            num_tel: z.number().int(),
+            num_tel: z.number().int({message: "num is required and must be an integer"}),
             email: z.string().email({ message: "Invalid email format" })
         });
-
+        
         const result = clientSchema.safeParse(req.body);
-
+        
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-
-        const {nom,domain,num_tel,email} = req.body;
-
+        
+        const {nom,domain,num_tel,email} = result.data;
+        
         const decoded_token = req.decoded_token;
         if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
-
-        const query = 'INSERT INTO "Clients" (nom,domain,num_tel,email,account_id) VALUES ($1,$2,$3,$4,$5)';
+        
+        const query = 'INSERT INTO "Clients" (nom,domain,num_tel,email,entreprise_id) VALUES ($1,$2,$3,$4,(SELECT entreprise_id FROM accounts WHERE "ID" = $5))';
         const values = [nom,domain,num_tel,email,decoded_token.id];
 
         await pool.query(query,values);
@@ -36,8 +37,9 @@ const addClient = async(req,res)=>{
 
 const deleteClient = async(req,res)=>{
     try {
+        console.log(JSON.stringify(req.body))
         const clientSchema = z.object({
-            ID: z.number().int()
+            IDs: z.array(z.number().int()).min(1),
         });
 
         const result = clientSchema.safeParse(req.body);
@@ -46,14 +48,18 @@ const deleteClient = async(req,res)=>{
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {ID} = req.body;
+        const {IDs} = result.data;
 
-        const query = 'DELETE FROM "Clients" WHERE "ID"=$1';
-        const values = [ID];
+        const query = 'DELETE FROM "Clients" WHERE "ID"= ANY($1)';
+        const values = [IDs];
 
-        await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
 
-        return res.status(200).json({success : true, message: "client added with success"});
+        if(rowCount === 0){
+            return res.status(404).json({success:false , message:"no clients where deleted"});
+        }
+        
+        return res.status(200).json({success : true, message: "clients deleted with success"});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
@@ -62,13 +68,26 @@ const deleteClient = async(req,res)=>{
 //update client
 const updateClient = async(req,res)=>{
     try {
+        const clientSchema = z.object({
+            nom: z.string().trim().min(1, { message: "Nom is required" }).optional(),
+            domain: z.string().min(1, { message: "domain is required" }).optional(),
+            num_tel: z.number().int({message: "num is required and must be an integer"}).optional(),
+            email: z.string().email({ message: "Invalid email format" }).optional(),
+            ID: z.number().int(),
+        });
 
-        const {ID,nom,domain,num_tel,email} = req.body;
+        const result = clientSchema.safeParse(req.body);
+        
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID,nom,domain,num_tel,email} = result.data;
         if(!ID||([nom,domain,num_tel,email].every((value)=>(value===undefined||value==="")))){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const data = {nom,address,date_debut,date_fin,description,prix}
+        const data = {nom,domain,num_tel,email}
 
         const FilteredBody = Object.fromEntries(Object.entries(data).filter(([key,value])=>(value!==undefined&&value!==null&&value!=="")));
 
@@ -78,12 +97,16 @@ const updateClient = async(req,res)=>{
         values.push(ID);
 
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
-        const query = `UPDATE "Client" SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
+        const query = `UPDATE "Clients" SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
 
 
-        await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
 
-        return res.status(200).json({success : true, message: "client added with success"});
+        if(rowCount === 0){
+            return res.status(404).json({success:false , message:"no client was updated"});
+        }
+
+        return res.status(200).json({success : true, message: "client updated with success"});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
@@ -95,7 +118,7 @@ const getAllClients = async(req,res)=>{
         if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
-        const query = 'SELECT * FROM "Clients" WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))';
+        const query = 'SELECT * FROM "Clients" WHERE  entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)';
         const values =[decoded_token.id];
         const data = await pool.query(query,values);
         if(!data){

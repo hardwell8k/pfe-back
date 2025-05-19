@@ -26,7 +26,7 @@ const addInstructor = async(req,res)=>{
             return res.status(400).json({ success:false, message:"missing data" });
         }
 
-        const query = 'INSERT INTO instructeur (nom,address,age,num_tel,gender,description,account_id) VALUES ($1,$2,$3,$4,$5,$6,$7)';
+        const query = 'INSERT INTO instructeur (nom,address,age,num_tel,gender,description,entreprise_id) VALUES ($1,$2,$3,$4,$5,$6,(SELECT entreprise_id FROM accounts WHERE "ID"=$7))';
         const values = [nom,address,age,num_tel,gender,description,decoded_token.id];
 
         await pool.query(query,values);
@@ -114,7 +114,7 @@ const getAllInstructors = async(req,res)=>{
             return res.status(400).json({ success:false, message:"missing data" });
         }
 
-        const query = 'SELECT "ID",nom,address,age,num_tel,gender,description FROM instructeur WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1))';
+        const query = 'SELECT "ID",nom,address,age,num_tel,gender,description FROM instructeur WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
@@ -134,7 +134,7 @@ const getInstructorsForWorkshop = async(req,res)=>{
             return res.status(400).json({ success:false, message:"missing data" });
         }
 
-        const query = 'SELECT "ID",nom FROM instructeur WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1))';
+        const query = 'SELECT "ID",nom FROM instructeur WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);

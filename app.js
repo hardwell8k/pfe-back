@@ -3,6 +3,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 require("dotenv").config();
 const cookieparser = require('cookie-parser');
+const PORT = process.env.PORT || 3000;
 
 const eventRoutes = require("./routes/event/eventRoutes");
 const clientRoutes = require('./routes/client/clientRoutes');
@@ -24,7 +25,8 @@ const authMiddleware = require('./middlewares/authMiddleware');
 
 const app = express();
 
-app.use(cors({origin: 'http://localhost:5173',credentials: true}));
+app.listen(PORT, '0.0.0.0');
+app.use(cors({origin: 'http://10.0.0.203:5173',credentials: true}));
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparser());

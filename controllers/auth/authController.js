@@ -68,6 +68,7 @@ const signUp = async (req,res)=>{
 
 const logIn = async (req,res)=>{
     try {
+        console.log("login reached");
         const signUpSchema = z.object({
             email: z.string().email({ message: "Invalid email format" }),
             password: z.string().trim().min(1, { message: "Password is required" }),
@@ -78,9 +79,10 @@ const logIn = async (req,res)=>{
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
+        console.log(result.data);
         const {email,password} = req.body;
 
-        const query = 'SELECT * FROM accounts WHERE email = $1';
+        const query = 'SELECT a."ID",a.email,a.password,a.role,a.type,a.activation_date,a.deactivation_date,a.nom,a.status,(SELECT nom FROM entreprise WHERE "ID"=a.entreprise_id) as entreprise_nom FROM accounts a WHERE email = $1';
         const values = [email];
 
         const dbresult = await pool.query(query,values);
@@ -89,17 +91,18 @@ const logIn = async (req,res)=>{
         if(!account){
             return res.status(401).json({success:false,message:"account email does not exist"});
         }
-
+        console.log("reached account check");
         if(!(await bcrypt.compare(password,account.password))){
             return res.status(402).json({success:false,message:"wrong password"});
         }
-        
+        console.log("reached password check");
         const token = jwt.sign({id:account.ID,role:account.role},secret.MY_SECRET,{expiresIn:'8h'});
 
         const Tokenquery = 'UPDATE accounts SET token = $1 WHERE "ID" = $2';
         const Tokenvalues = [token,account.ID];
         await pool.query(Tokenquery,Tokenvalues);
-        return res.status(200).cookie('token',token,{httpOnly:true,secure:false,sameSite:'lax',domain: '',maxAge:28800000}).json({success : true, message: "loged in with success",data:account.role});
+        console.log("update account reached");
+        return res.status(200).cookie('token',token,{httpOnly:true,secure:false,sameSite:'lax',domain: '',maxAge:28800000}).json({success : true, message: "loged in with success",data:{"ID":account.ID,"email":account.email,"role":account.role,"type":account.type,"activation_date":account.activation_date,"deactivation_date":account.deactivation_date,"nom":account.nom,"status":account.status,"entreprise_nom":account.entreprise_nom}});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
@@ -172,9 +175,9 @@ const updateAccount = async (req,res)=>{
         const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
         const query = `UPDATE accounts SET ${columnsString} WHERE "ID"=$${columns.length+1} AND (role = ANY($${columns.length+2}) OR "ID"=$${columns.length+3}) AND entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$${columns.length+3})`;
 
-        const dbresult = await pool.query(query,values);
+        const {rowCount} = await pool.query(query,values);
 
-        if(dbresult.rowCount === 0){
+        if(rowCount === 0){
             return res.status(200).json({success : true, message: "no account was updated"});
         }
 

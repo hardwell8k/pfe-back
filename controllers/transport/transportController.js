@@ -114,7 +114,7 @@ const getAllTransports = async(req,res)=>{
             return res.status(400).json({ success:false, message:"missing data" });
         }
 
-        const query = 'SELECT "ID",adress_depart,adress_arrive,temps_depart,prix,description,(SELECT nom FROM car where car."ID"=t.car_id ) FROM transport t WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN (SELECT "ID" FROM "Clients" WHERE account_id IN (SELECT "ID" FROM accounts WHERE entreprise_id = (SELECT entreprise_id from accounts WHERE "ID"=$1))))';
+        const query = 'SELECT "ID",adress_depart,adress_arrive,temps_depart,prix,description,(SELECT nom FROM car where car."ID"=t.car_id ) FROM transport t WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id = (SELECT entreprise_id from accounts WHERE "ID"=$1)))';
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
