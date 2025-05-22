@@ -59,7 +59,7 @@ const addEquipment = async(req,res)=>{
                                 $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 10},$${idx + 11},$${idx + 12})`);
 
             values.push(nom, code_bar, RFID, details, sub_category,decoded_token.id, category, type, date_achat, date_location, date_retour,prix);
-            idx = idx+12;
+            dx = idx+12;
         }
         console.log("placeHolders: ",placeholders)
         console.log("Values: ",values);
@@ -96,7 +96,7 @@ const getAllEquipment = async(req,res)=>{
             }),
         });
 
-        const result = equipmentSchema.safeParse(req.body);
+        const result = equipmentSchema.safeParse({timestamp:req.params.timestamp});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -284,4 +284,87 @@ const addequipmentType = async()=>{
     }
 }
 
-module.exports={addEquipment,updateEquipment,getAllEquipment,deleteEquipment}
+//add a controller for the graph data
+//select from list_equipement join equipementon equipement_id = e."ID" "number of rows for each equipment is the data i need"
+const getEquipmentUse = async(req,res)=>{
+    try {
+        const equipmentSchema = z.object({
+            timestamp: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+        });
+
+        const result = equipmentSchema.safeParse({timestamp:req.params.timestamp});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const decoded_token = req.decoded_token;
+
+        const {timestamp} = result.data;
+
+        const endDate = new Date(timestamp);
+        const startDate = new Date(endDate);
+        startDate.setMonth(endDate.getMonth() - 11);
+
+        const query = `SELECT e.nom,e.details,(SELECT nom FROM sub_category WHERE "ID"=e.sub_category_id) AS sub_category_name,count(*) AS use_number
+                        FROM equipement e
+                        JOIN "Liste_equipement" le ON le.equipement_id = e."ID"
+                        WHERE e.entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)
+                        AND le.date_debut BETWEEN $2 AND $3
+                        GROUP BY e.nom,details,e.sub_category_id`;
+        const values = [decoded_token.id,startDate,endDate];
+        
+        const data = await pool.query(query,values);
+        return res.status(200).json({success : true, message: "fetched data with success",data:data.rows});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
+
+const getCategoryUse = async(req,res)=>{
+    try {
+        const equipmentSchema = z.object({
+            timestamp: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+        });
+
+        const result = equipmentSchema.safeParse({timestamp:req.params.timestamp});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const decoded_token = req.decoded_token;
+
+        const {timestamp} = result.data;
+
+        const endDate = new Date(timestamp);
+        const startDate = new Date(endDate);
+        startDate.setMonth(endDate.getMonth() - 11);
+
+        const query = `SELECT (SELECT nom FROM category WHERE "ID"=e.category_id) AS nom,count(*) AS use_number
+                        FROM equipement e
+                        JOIN "Liste_equipement" le ON le.equipement_id = e."ID"
+                        WHERE e.entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)
+                        AND le.date_debut BETWEEN $2 AND $3
+                        GROUP BY e.category_id`;
+        const values = [decoded_token.id,startDate,endDate];
+        
+        const data = await pool.query(query,values);
+        return res.status(200).json({success : true, message: "fetched data with success",data:data.rows});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
+
+
+module.exports={addEquipment,updateEquipment,getAllEquipment,deleteEquipment,getEquipmentUse,getCategoryUse}

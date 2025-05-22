@@ -7,8 +7,11 @@ const router = express.Router();
 
 router.post('/signUp',auth,signUp);
 router.post('/logIn',logIn);
-router.put('/updateAccount',auth,updateAccount)
+
+router.put('/updateAccount',auth,updateAccount);
+
 router.get('/getAcounts',getAcounts);
+
 router.delete('/deleteAccount',auth,deleteAccount);
 
 module.exports = router;

@@ -1,14 +1,13 @@
 const pool = require("../../dbConnection");
-const jwt = require('jsonwebtoken');
 const {z} = require("zod");
 
 const addStaff = async (req,res)=>{
     try {
         const staffSchema = z.object({
             nom: z.string().trim().min(1, { message: "Nom is required" }),
-            prenom: z.string().min(1, { message: "Address is required" }).optional(),
-            role: z.string().min(1, { message: "Address is required" }),
-            departement: z.string().min(1, { message: "Address is required" }).optional(),
+            prenom: z.string().min(1, { message: "last name is required" }).optional(),
+            role: z.string().min(1, { message: "Role is required" }),
+            departement: z.string().min(1, { message: "department is required" }).optional(),
             num_tel: z.number().int().optional(),
             email: z.string().email({ message: "Invalid email format" }).optional(),
             team_id: z.number().int().optional(),
@@ -27,12 +26,15 @@ const addStaff = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = 'INSERT INTO staff (nom,prenom,num_tel,email,departement,role,team_id,entreprise_id) VALUES ($1,$2,$3,$4,$5,$6,$7,(SELECT entreprise_id FROM accounts WHERE "ID" = $8))';
+        const query = 'INSERT INTO staff (nom,prenom,num_tel,email,departement,role,team_id,entreprise_id) VALUES ($1,$2,$3,$4,$5,$6,$7,(SELECT entreprise_id FROM accounts WHERE "ID" = $8)) RETURNING "ID"';
         const values = [nom,prenom,num_tel,email,departement,role,team_id,decoded_token.id];
 
-        await pool.query(query,values);
+        const data = await pool.query(query,values);
+        if(data.rowCount === 0){
+            return res.status(200).json({success : true, message: "no staff was added"});
+        }
 
-        return res.status(200).json({success : true, message: "staff added with success"});
+        return res.status(200).json({success : true, message: "staff added with success",ID:data.rows[0].ID});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
@@ -200,6 +202,46 @@ const addStaffToEvent = async (req,res)=>{
 }
 
 
+const getStaffEvents = async (req,res)=>{
+    try {
+        const staffSchema = z.object({
+            staff_id: z.number().int().min(1),
+        });
+
+        const result = staffSchema.safeParse({staff_id:Number(req.params.id)});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {staff_id} = result.data;
+
+        const decoded_token = req.decoded_token;
+
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+        
+
+        const query = `SELECT e."ID" AS event_id,e.nom AS event_name,e.date_debut AS date_debut,e.date_fin AS date_fin,e.type AS type,e.edition AS edition,e.nbr_invite AS nbr_invite ,e.description AS description,e.address AS address,e.client_id AS client_id,c.nom AS client_name
+                        FROM evenement e
+                        JOIN "Liste_staff" ls ON ls.evenement_id = e."ID"
+                        JOIN staff s ON ls.staff_id = s."ID" 
+                        LEFT JOIN "Clients" c ON c."ID"=e.client_id
+                        WHERE s."ID" = $1 AND s.entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID" = $2)`;
+        const values = [staff_id,decoded_token.id];
+
+        const data = await pool.query(query,values);
+
+        if(data.rowCount === 0){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        return res.status(200).json({success: true, message : "staffs events fetched with success",data:data.rows});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
 
 
-module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,addStaffToEvent}
+
+module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,addStaffToEvent,getStaffEvents}

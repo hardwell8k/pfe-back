@@ -10,7 +10,7 @@ const signUp = async (req,res)=>{
         const signUpSchema = z.object({
             nom: z.string().trim().min(1, { message: "Nom is required" }),
             email: z.string().email({ message: "Invalid email format" }),
-            password: z.string().trim().min(1, { message: "Password is required" }),
+            password: z.string().trim().min(1, { message: "Password is required" }).optional(),
             role: z.enum(["super_admin", "admin", "super_user", "user"], { message: "Invalid role" }),
             type: z.enum(["temporaire", "permanent"], { message: "Invalid type" }),
             activation_date: z.string().optional().refine(val => !val || !isNaN(new Date(val).getTime()), {
@@ -20,6 +20,8 @@ const signUp = async (req,res)=>{
                 message: "Invalid deactivation date format"
             }),
             entreprise_id: z.number(1).optional(),
+            staff_id: z.number().int().optional(),
+            status: z.enum(["active", "inactive"], { message: "Invalid status" }).optional(),
         });
 
         const result = signUpSchema.safeParse(req.body);
@@ -28,13 +30,17 @@ const signUp = async (req,res)=>{
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {nom,email,password,role,type,activation_date,deactivation_date,entreprise_id} = req.body;
+        const {nom,email,password,role,type,activation_date,deactivation_date,entreprise_id,staff_id} = req.body;
 
         if((type === 'temporaire')&&(!activation_date||!deactivation_date)){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        crypted_password = await bcrypt.hash(password,10);  
+        if(password){
+            crypted_password = await bcrypt.hash(password,10); 
+        }else{
+            crypted_password = await bcrypt.hash(nom,10);
+        } 
         let query = '';
         let values = [];
 
@@ -51,11 +57,11 @@ const signUp = async (req,res)=>{
         }
 
         if(type === 'temporaire'){
-            query = `INSERT INTO accounts (entreprise_id,nom,email,password,role,type,activation_date,deactivation_date) VALUES (${queryPart},$2,$3,$4,$5,$6,$7,$8)`;
-            values = [roleDependentValue,nom,email,crypted_password,role,type,activation_date,deactivation_date];
+            query = `INSERT INTO accounts (entreprise_id,nom,email,password,role,type,activation_date,deactivation_date,staff_id,status) VALUES (${queryPart},$2,$3,$4,$5,$6,$7,$8,$9,$10)`;
+            values = [roleDependentValue,nom,email,crypted_password,role,type,activation_date,deactivation_date,staff_id];
         }else{
-            query = `INSERT INTO accounts (entreprise_id,nom,email,password,role,type) VALUES (${queryPart},$2,$3,$4,$5,$6)`;
-            values = [roleDependentValue,nom,email,crypted_password,role,type];
+            query = `INSERT INTO accounts (entreprise_id,nom,email,password,role,type,staff_id,status) VALUES (${queryPart},$2,$3,$4,$5,$6,$7,$8)`;
+            values = [roleDependentValue,nom,email,crypted_password,role,type,staff_id];
         }
         
         await pool.query(query,values);
@@ -82,7 +88,7 @@ const logIn = async (req,res)=>{
         console.log(result.data);
         const {email,password} = req.body;
 
-        const query = 'SELECT a."ID",a.email,a.password,a.role,a.type,a.activation_date,a.deactivation_date,a.nom,a.status,(SELECT nom FROM entreprise WHERE "ID"=a.entreprise_id) as entreprise_nom FROM accounts a WHERE email = $1';
+        const query = 'SELECT a."ID",a.staff_id,a.email,a.password,a.role,a.type,a.activation_date,a.deactivation_date,a.nom,a.status,(SELECT nom FROM entreprise WHERE "ID"=a.entreprise_id) as entreprise_nom FROM accounts a WHERE email = $1';
         const values = [email];
 
         const dbresult = await pool.query(query,values);
@@ -102,7 +108,7 @@ const logIn = async (req,res)=>{
         const Tokenvalues = [token,account.ID];
         await pool.query(Tokenquery,Tokenvalues);
         console.log("update account reached");
-        return res.status(200).cookie('token',token,{httpOnly:true,secure:false,sameSite:'lax',domain: '',maxAge:28800000}).json({success : true, message: "loged in with success",data:{"ID":account.ID,"email":account.email,"role":account.role,"type":account.type,"activation_date":account.activation_date,"deactivation_date":account.deactivation_date,"nom":account.nom,"status":account.status,"entreprise_nom":account.entreprise_nom}});
+        return res.status(200).cookie('token',token,{httpOnly:true,secure:false,sameSite:'lax',domain: '',maxAge:28800000}).json({success : true, message: "loged in with success",data:{"ID":account.ID,"email":account.email,"role":account.role,"type":account.type,"activation_date":account.activation_date,"deactivation_date":account.deactivation_date,"nom":account.nom,"status":account.status,"entreprise_nom":account.entreprise_nom,token:token,"staff_id":account.staff_id}});
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }

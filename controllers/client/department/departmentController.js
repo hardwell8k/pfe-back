@@ -12,13 +12,11 @@ const addDepartment = async(req,res)=>{
         });
 
         const result = clientSchema.safeParse(req.body);
-
+        
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-
         const {nom,department,num_tel,email,client_id} = req.body;
-        
 
         const query = 'INSERT INTO department (nom,department,num_tel,email,client_id) VALUES ($1,$2,$3,$4,$5)';
         const values = [nom,department,num_tel,email,client_id];
@@ -26,6 +24,7 @@ const addDepartment = async(req,res)=>{
         await pool.query(query,values);
         return res.status(200).json({success:true,message:"department added"});
     } catch (error) {
+        console.log(error);
         return res.status(500).json({success:false,message:error.message});
     }
 }
