@@ -152,7 +152,11 @@ const getParticipation = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = `SELECT staff_id,date_debut FROM "Liste_staff" WHERE staff_id IN (SELECT "ID" FROM staff WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)) AND date_debut BETWEEN date_trunc('month', CURRENT_DATE) - INTERVAL '5 months' AND CURRENT_DATE`;
+        const query = `SELECT ls.staff_id , e.date_debut ,e.nom
+                        FROM evenement e
+                        LEFT JOIN "Liste_staff" ls ON ls.evenement_id = e."ID"
+                        WHERE e.client_id = ANY(SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))
+                        AND e.date_debut BETWEEN date_trunc('month', CURRENT_DATE) - INTERVAL '5 months' AND CURRENT_DATE`;
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
@@ -242,6 +246,45 @@ const getStaffEvents = async (req,res)=>{
     }
 }
 
+const getEventStaff = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            ID: z.z.number().int().min(1),
+        });
+
+        const result = equipmentSchema.safeParse({ID:req.params.ID});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.onleave, 
+                        FROM staff st
+                        JOIN "Liste_staff" ls ON ls.staff_id = st."ID" 
+                        LEFT JOIN team te ON st.team_id = te."ID"
+                        WHERE ls.evenement_id = $1
+                        AND st.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)`;
+        const values = [ID,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
 
 
-module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,addStaffToEvent,getStaffEvents}
+
+
+module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,addStaffToEvent,getStaffEvents,getEventStaff}

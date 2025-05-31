@@ -15,7 +15,7 @@ const teamRoutes = require('./routes/staff/team/teamRoutes');
 const workshopRoutes = require('./routes/workshop/workshopRoutes');
 const soireeRoutes = require('./routes/soiree/soireeRoutes'); 
 const accomodationRoutes = require('./routes/accomodation/accomodationRoutes'); 
-const entrepriseRoutes = require('./routes/client/entreprise/entrepriseRoutes');
+const entrepriseRoutes = require('./routes/auth/entrepriseRoutes');
 const carRoutes = require('./routes/transport/car/carRoutes');
 const transportRoutes = require('./routes/transport/transportRoutes');
 const instructorRoutes = require('./routes/instructor/instructorRoutes');
@@ -26,7 +26,7 @@ const authMiddleware = require('./middlewares/authMiddleware');
 const app = express();
 
 app.listen(PORT, '0.0.0.0');
-app.use(cors({origin: 'http://10.0.0.203:5173',credentials: true}));
+app.use(cors({origin: 'http://localhost:5173',credentials: true}));
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparser());

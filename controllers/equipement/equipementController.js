@@ -366,5 +366,87 @@ const getCategoryUse = async(req,res)=>{
     }
 }
 
+const getHistoryEquipment = async(req,res)=>{
+    try {
+        const equipmentSchema = z.object({
+            timestamp: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+        });
 
-module.exports={addEquipment,updateEquipment,getAllEquipment,deleteEquipment,getEquipmentUse,getCategoryUse}
+        const result = equipmentSchema.safeParse({timestamp:req.params.timestamp});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const decoded_token = req.decoded_token;
+
+        const {timestamp} = result.data;
+
+        const query = `SELECT e.nom AS equipment_name,e.type,count(*) AS use_number,ev.date_debut,ev.date_fin,ev.nom AS event_name
+                        FROM equipement e
+                        JOIN "Liste_equipement" le ON le.equipement_id = e."ID"
+                        JOIN evenement ev ON le.evenement_id = ev."ID"
+                        WHERE e.entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)
+                        AND ev.date_fin < $2
+                        GROUP BY ev.date_debut,ev.date_fin,ev.nom,e.nom`;
+        const values = [decoded_token.id,timestamp];
+        
+        const data = await pool.query(query,values);
+        return res.status(200).json({success : true, message: "fetched data with success",data:data.rows});
+    } catch (error) {
+        return res.status(500).json({success:false,message:error.message});
+    }
+}
+
+
+const getEventEquipment = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            ID: z.z.number().int().min(1),
+        });
+
+        const result = equipmentSchema.safeParse({ID:req.params.ID});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT eq.nom as equipment_name, eq.details, eq.type, ca.nom AS category_name, sc.nom AS sub_category_name ,count(*) AS use_number
+                        FROM equipement eq
+                        JOIN "Liste_equipement" le ON le.equipement_id = eq."ID" 
+                        LEFT JOIN category ca ON eq.category_id = ca."ID"
+                        LEFT JOIN sub_category sc ON eq.sub_category_id = sc."ID"
+                        WHERE le.evenement_id = $1
+                        AND eq.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2) 
+                        GROUP BY eq.nom,eq.details
+                        ORDER BY date_debut`;
+        const values = [ID,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+
+
+
+
+module.exports={addEquipment,updateEquipment,getAllEquipment,deleteEquipment,getEquipmentUse,getCategoryUse,getHistoryEquipment,getEventEquipment}

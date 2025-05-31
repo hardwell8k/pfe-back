@@ -1,6 +1,6 @@
 const express = require('express');
 
-const {addEntreprise,updateEntreprise,deleteEntreprise,getAllEntreprises} = require('../../../controllers/auth/entreprise/entrepriseController');
+const {addEntreprise,updateEntreprise,deleteEntreprise,getAllEntreprises} = require('../../controllers/auth/entreprise/entrepriseController');
 
 const router = express.Router();
 

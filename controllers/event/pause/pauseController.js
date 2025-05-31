@@ -108,7 +108,7 @@ const getAllPausesForEvent = async(req,res)=>{
             evenement_id: z.number().int(),
         });
 
-        const result = pauseSchema.safeParse(req.body);
+        const result = pauseSchema.safeParse({evenement_id:req.params.ID});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });

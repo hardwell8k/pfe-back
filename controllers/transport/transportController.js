@@ -125,4 +125,43 @@ const getAllTransports = async(req,res)=>{
     }
 }
 
-module.exports = {addTransport,updateTransport,deleteTransport,getAllTransports}
+const getEventtransport = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            ID: z.z.number().int().min(1),
+        });
+
+        const result = equipmentSchema.safeParse({ID:req.params.ID});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT t.adress_depart, t.adress_arrive, t.temps_depart, t.prix, t.description , c.nbr_place, c.matricule, c.categorie, c.nom AS car_name 
+                        FROM transport t
+                        JOIN evenement ev ON t.evenement_id = ev."ID"
+                        LEFT JOIN car c ON t.car_id = c."ID" 
+                        WHERE ev."ID = $1
+                        AND ev.client_id = ANY(SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))`;
+        const values = [ID,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+
+module.exports = {addTransport,updateTransport,deleteTransport,getAllTransports,getEventtransport}

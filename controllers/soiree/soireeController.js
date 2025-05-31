@@ -112,4 +112,42 @@ const getAllSoirees = async(req,res)=>{
     }
 }
 
-module.exports = {addSoiree,updateSoiree,deleteSoiree,getAllSoirees}
+const getEventSoiree = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            ID: z.z.number().int().min(1),
+        });
+
+        const result = equipmentSchema.safeParse({ID:req.params.ID});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT so.address AS soiree_address , so.date AS soiree_date , so.description AS soiree_description, so.prix AS soiree_price
+                        FROM soire so
+                        JOIN evenement ev ON so.evenement_id = ev."ID"
+                        WHERE so.evenement_id = $1
+                        AND ev.client_id = ANY(SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))`;
+        const values = [ID,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+
+module.exports = {addSoiree,updateSoiree,deleteSoiree,getAllSoirees,getEventSoiree}

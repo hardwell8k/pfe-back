@@ -1,5 +1,5 @@
 const express = require('express');
-const {getUPcomingEvents,addEvent, updateEvent, deleteEvent,getEventsHistory} = require("../../controllers/event/eventController");
+const {getUPcomingEvents,addEvent, updateEvent, deleteEvent,getEventsHistory,getRestOfEventsHistoryData} = require("../../controllers/event/eventController");
 const {getEventTypes, addEventType} = require("../../controllers/event/eventTypes/eventTypesController");
 const {addPause,updatePause,deletePause,getAllPausesForEvent}= require('../../controllers/event/pause/pauseController')
 
@@ -11,7 +11,9 @@ router.post("/addPause",addPause)
 router.get("/getEventTypes",getEventTypes);
 router.get("/getUPcomingEvents",getUPcomingEvents);
 router.get("/getEventsHistory",getEventsHistory);
-router.get("/getAllPausesForEvent",getAllPausesForEvent);
+router.get("/getAllPausesForEvent/:ID",getAllPausesForEvent);
+router.get("/getRestOfEventsHistoryData/:ID",getRestOfEventsHistoryData);
+
 
 router.put("/updateEvent",updateEvent);
 router.put("/updatePause",updatePause);
