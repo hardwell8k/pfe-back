@@ -163,5 +163,171 @@ const getEventtransport = async(req,res)=>{
     }
 }
 
+const addStaffToTransport = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            ID_transport: z.z.number().int().min(1),
+            ID_staff: z.z.number().int().min(1),
+            
+        });
 
-module.exports = {addTransport,updateTransport,deleteTransport,getAllTransports,getEventtransport}
+        const result = StaffSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_transport,ID_staff} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `INSERT INTO staff_transport (transport_id,staff_id) VALUES ($1,$2) WHERE ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4))`;
+        const values = [ID_transport,ID_staff,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while adding staff to transport",error);
+        res.status(500).json({success:false,message:"error while adding staff to transport",err:error.message});
+    }
+}
+
+
+const removeStaffFromTransport = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            ID_transport: z.z.number().int().min(1),
+            ID_staff: z.z.number().int().min(1), 
+        });
+
+        const result = StaffSchema.safeParse({ID_transport:req.params.ID_transport,ID_staff:params.ID_staff});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_transport,ID_staff} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `DELETE FROM staff_transport WHERE (transport_id = $1 AND staff_id = $2 AND ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4)))`;
+        const values = [ID_transport,ID_staff,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while removing staff From transport",error);
+        res.status(500).json({success:false,message:"error while removing staff From transport",err:error.message});
+    }
+}
+
+
+const addCarToTransport = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            ID_transport: z.z.number().int().min(1),
+            ID_car: z.z.number().int().min(1),
+            
+        });
+
+        const result = StaffSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_transport,ID_car} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `UPDATE transport 
+                        SET car_id = $1 
+                        WHERE "ID" = $2
+                        AND ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4))`;
+        const values = [ID_car,ID_transport,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while adding car to transport",error);
+        res.status(500).json({success:false,message:"error while adding car to transport",err:error.message});
+    }
+}
+
+
+const removeCarFromTransport = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            ID_transport: z.z.number().int().min(1),
+        });
+
+        const result = StaffSchema.safeParse({ID_transport:req.params.ID_transport});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_transport} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `UPDATE transport 
+                        SET car_id = NULL 
+                        WHERE "ID" = $2
+                        AND ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4))`;
+        const values = [ID_transport,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while removing car From transport",error);
+        res.status(500).json({success:false,message:"error while removing car From transport",err:error.message});
+    }
+}
+
+
+module.exports = {addTransport,updateTransport,deleteTransport,getAllTransports,getEventtransport,addStaffToTransport,removeStaffFromTransport,addCarToTransport,removeCarFromTransport}

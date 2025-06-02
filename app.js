@@ -25,8 +25,11 @@ const authMiddleware = require('./middlewares/authMiddleware');
 
 const app = express();
 
-app.listen(PORT, '0.0.0.0');
-app.use(cors({origin: 'http://localhost:5173',credentials: true}));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Server running on port 5000');
+});
+//app.use(cors({origin: 'http://0.0.0.0',credentials: true}));
+app.use(cors({origin: (origin, callback) => {callback(null, true);},credentials: true}));
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparser());

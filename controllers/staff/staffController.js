@@ -169,43 +169,6 @@ const getParticipation = async (req,res)=>{
     }
 }
 
-const addStaffToEvent = async (req,res)=>{
-    try {
-        const staffSchema = z.object({
-            staff_id: z.number().int().min(1),
-            event_id: z.number().int().min(1),
-            date_debut: z.string().refine(val => !isNaN(new Date(val).getTime()), {
-                message: "Invalid start date format"
-            }),
-            date_fin: z.string().refine(val => !isNaN(new Date(val).getTime()), {
-                message: "Invalid end date format"
-            }),
-        });
-
-        const result = staffSchema.safeParse(req.body);
-
-        if (!result.success) {
-            return res.status(400).json({ errors: result.error.errors });
-        }
-
-        const {staff_id,event_id,date_debut,date_fin} = result.data;
-        
-
-        const query = 'INSERT INTO "Liste_staff" (staff_id,evenement_id,date_debut,date_fin) VALUES ($1,$2,$3,$4)';
-        const values = [staff_id,event_id,date_debut,date_fin];
-
-        const {rowCount} = await pool.query(query,values);
-
-        if(rowCount === 0){
-            return res.status(400).json({"success":false , message:"failure"});
-        }
-        return res.status(200).json({success: true, message : "staffs added to the event with success"});
-    } catch (error) {
-        return res.status(500).json({success:false,message:error.message});
-    }
-}
-
-
 const getStaffEvents = async (req,res)=>{
     try {
         const staffSchema = z.object({
@@ -248,11 +211,11 @@ const getStaffEvents = async (req,res)=>{
 
 const getEventStaff = async(req,res)=>{
     try{
-        const equipmentSchema = z.object({
+        const StaffSchema = z.object({
             ID: z.z.number().int().min(1),
         });
 
-        const result = equipmentSchema.safeParse({ID:req.params.ID});
+        const result = StaffSchema.safeParse({ID:req.params.ID});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -284,7 +247,136 @@ const getEventStaff = async(req,res)=>{
     }
 }
 
+const getAvailabeEventStaff = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            start_date: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+            end_date: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+        });
+
+        const result = StaffSchema.safeParse({start_date:params.start_date,end_date:params.end_date});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {start_date,end_date} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT ls."ID" AS ls_id,CASE WHEN ls."ID" IS NULL THEN TRUE ELSE FALSE END AS disponible
+                        FROM staff st
+                        JOIN "Liste_staff" ls ON ls.staff_id = st."ID" 
+                        LEFT JOIN team tm ON st.team_id = tm."ID"
+                        LEFT JOIN evenement ev ON le.evenement_id = ev."ID" AND (ev.date_debut >= $2 OR ev.date_fin <= $1)
+                        WHERE st.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $3)`;
+        const values = [start_date,end_date,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the staff",error);
+        res.status(500).json({success:false,message:"error while getting the staff",err:error.message});
+    }
+}
+
+
+const addStaffToEvent = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            ID_event: z.z.number().int().min(1),
+            ID_staff: z.z.number().int().min(1),
+            
+        });
+
+        const result = StaffSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_event,ID_staff} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `INSERT INTO "Liste_staff" (evenement_id,staff_id) VALUES ($1,$2) WHERE ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4))`;
+        const values = [ID_event,ID_staff,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting staffs",error);
+        res.status(500).json({success:false,message:"error while getting the staff",err:error.message});
+    }
+}
+
+
+const removeStaffFromEvent = async(req,res)=>{
+    try{
+        const StaffSchema = z.object({
+            ID_event: z.z.number().int().min(1),
+            ID_staff: z.z.number().int().min(1), 
+        });
+
+        const result = StaffSchema.safeParse({ID_event:req.params.ID_event,ID_staff:params.ID_staff});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_event,ID_staff} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `DELETE FROM "Liste_staff" WHERE (evenement_id = $1 AND staff_id = $2 AND ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4)))`;
+        const values = [ID_event,ID_staff,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the staff",error);
+        res.status(500).json({success:false,message:"error while getting the staff",err:error.message});
+    }
+}
 
 
 
-module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,addStaffToEvent,getStaffEvents,getEventStaff}
+module.exports = {addStaff,updateStaff,deleteStaff,getAllStaff,getParticipation,getStaffEvents,getEventStaff,getAvailabeEventStaff,addStaffToEvent,removeStaffFromEvent}

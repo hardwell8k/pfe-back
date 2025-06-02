@@ -286,6 +286,7 @@ const addequipmentType = async()=>{
 
 //add a controller for the graph data
 //select from list_equipement join equipementon equipement_id = e."ID" "number of rows for each equipment is the data i need"
+//controller for the use graph data in the equipment page 
 const getEquipmentUse = async(req,res)=>{
     try {
         const equipmentSchema = z.object({
@@ -325,7 +326,7 @@ const getEquipmentUse = async(req,res)=>{
         return res.status(500).json({success:false,message:error.message});
     }
 }
-
+//controller for the use by category graph in the equipment page
 const getCategoryUse = async(req,res)=>{
     try {
         const equipmentSchema = z.object({
@@ -365,7 +366,7 @@ const getCategoryUse = async(req,res)=>{
         return res.status(500).json({success:false,message:error.message});
     }
 }
-
+//data for the equipment history page
 const getHistoryEquipment = async(req,res)=>{
     try {
         const equipmentSchema = z.object({
@@ -403,7 +404,7 @@ const getHistoryEquipment = async(req,res)=>{
     }
 }
 
-
+    
 const getEventEquipment = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
@@ -445,8 +446,140 @@ const getEventEquipment = async(req,res)=>{
     }
 }
 
+const getAvailabeEventEquipment = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            start_date: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+            end_date: z.string().refine((value) => {
+                const date = new Date(value);
+                return !isNaN(date.getTime());
+            }, {
+                message: "Invalid timestamp format",
+            }),
+        });
+
+        const result = equipmentSchema.safeParse({start_date:params.start_date,end_date:params.end_date});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {start_date,end_date} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const query = `SELECT eq."ID", eq.nom, eq.code_bar, eq."RFID", eq.details,eq.type, s."ID" AS sub_category_id ,s.nom AS sub_category_name, c."ID" AS category_id ,c.nom AS category_name, eq.date_achat AS date, eq.date_retour, eq.prix, ag.nom AS agence_nom, ag.num_tel AS agence_num_tel, ag.email AS agence_email, ag.address AS agence_address,CASE WHEN ev."ID" IS NULL THEN TRUE ELSE FALSE END AS disponible
+                        FROM equipement eq
+                        JOIN "Liste_equipement" le ON le.equipement_id = eq."ID" 
+                        LEFT JOIN category ca ON eq.category_id = ca."ID"
+                        LEFT JOIN sub_category sc ON eq.sub_category_id = sc."ID"
+                        LEFT JOIN evenement ev ON le.evenement_id = ev."ID" AND (ev.date_debut >= $2 OR ev.date_fin <= $1) 
+                        WHERE eq.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $3) 
+                        GROUP BY eq.nom,eq.details
+                        ORDER BY date_debut`;
+        const values = [start_date,end_date,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the equipment",error);
+        res.status(500).json({success:false,message:"error while getting the equipment",err:error.message});
+    }
+}
+
+
+const addEquipmentToEvent = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            ID_event: z.z.number().int().min(1),
+            ID_equipment: z.z.number().int().min(1),
+            
+        });
+
+        const result = equipmentSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_event,ID_equipment} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `INSERT INTO "Liste_equipment" (evenement_id,equipement_id) VALUES ($1,$2) WHERE ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4))`;
+        const values = [ID_event,ID_equipment,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+
+const removeEquipmentFromEvent = async(req,res)=>{
+    try{
+        const equipmentSchema = z.object({
+            ID_event: z.z.number().int().min(1),
+            ID_equipment: z.z.number().int().min(1), 
+        });
+
+        const result = equipmentSchema.safeParse({ID_event:req.params.ID_event,ID_equipment:params.ID_equipment});
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        const {ID_event,ID_equipment} = result.data;
+
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const acceptedroles=["super_admin","admin","super_user"];
+        if(!acceptedroles.includes(decoded_token.role)){
+            return res.status(403).json({success : false, message: "missing privilege"});
+        }
+
+        const query = `DELETE FROM "Liste_equipment" WHERE (evenement_id = $1 AND equipement_id = $2 AND ((SELECT role FROM accounts WHERE "ID"=$3 ) = ANY($4)))`;
+        const values = [ID_event,ID_equipment,decoded_token.id,acceptedroles]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
 
 
 
 
-module.exports={addEquipment,updateEquipment,getAllEquipment,deleteEquipment,getEquipmentUse,getCategoryUse,getHistoryEquipment,getEventEquipment}
+module.exports={addEquipment,updateEquipment,getAllEquipment,deleteEquipment,getEquipmentUse,getCategoryUse,getHistoryEquipment,getEventEquipment,getAvailabeEventEquipment,addEquipmentToEvent,removeEquipmentFromEvent}
