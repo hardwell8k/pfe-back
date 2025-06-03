@@ -159,7 +159,7 @@ const getEventAccomodation = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = `SELECT ac.nom AS accomodation_name , ac.address , ac.prix AS accomodation_price, ac.date_debut , ac.date_debut , ac.description , ac.type AS accomodation_type
+        const query = `SELECT ac.nom AS accomodation_name , ac.address , ac.prix AS accomodation_price, ac.date_debut , ac.date_fin , ac.description , ac.type AS accomodation_type , ac.number AS capacity
                         FROM accomodation ac
                         JOIN evenement ev ON ac.evenement_id = ev."ID" 
                         WHERE ac.evenement_id = $1

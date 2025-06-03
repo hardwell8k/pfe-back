@@ -394,7 +394,7 @@ const getHistoryEquipment = async(req,res)=>{
                         JOIN evenement ev ON le.evenement_id = ev."ID"
                         WHERE e.entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID"=$1)
                         AND ev.date_fin < $2
-                        GROUP BY ev.date_debut,ev.date_fin,ev.nom,e.nom`;
+                        GROUP BY ev.date_debut,ev.date_fin,ev.nom,e.nom,e.type`;
         const values = [decoded_token.id,timestamp];
         
         const data = await pool.query(query,values);
