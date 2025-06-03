@@ -108,7 +108,7 @@ const getAllPausesForEvent = async(req,res)=>{
             evenement_id: z.number().int(),
         });
 
-        const result = pauseSchema.safeParse({evenement_id:req.params.ID});
+        const result = pauseSchema.safeParse({evenement_id:Number(req.params.ID)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -116,7 +116,7 @@ const getAllPausesForEvent = async(req,res)=>{
         
         const {evenement_id} = req.body;
 
-        const query = 'SELECT * FROM pause t WHERE evenement_id = $1';
+        const query = 'SELECT * FROM pause WHERE evenement_id = $1';
         const values = [evenement_id];
 
         const data = await pool.query(query,values);

@@ -115,10 +115,10 @@ const getAllSoirees = async(req,res)=>{
 const getEventSoiree = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-            ID: z.z.number().int().min(1),
+            ID: z.number().int().min(1),
         });
 
-        const result = equipmentSchema.safeParse({ID:req.params.ID});
+        const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });

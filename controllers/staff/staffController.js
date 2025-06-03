@@ -212,10 +212,10 @@ const getStaffEvents = async (req,res)=>{
 const getEventStaff = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID: z.z.number().int().min(1),
+            ID: z.number().int().min(1),
         });
 
-        const result = StaffSchema.safeParse({ID:req.params.ID});
+        const result = StaffSchema.safeParse({ID:Number(req.params.ID)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -300,8 +300,8 @@ const getAvailabeEventStaff = async(req,res)=>{
 const addStaffToEvent = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_event: z.z.number().int().min(1),
-            ID_staff: z.z.number().int().min(1),
+            ID_event: z.number().int().min(1),
+            ID_staff: z.number().int().min(1),
             
         });
 
@@ -341,11 +341,11 @@ const addStaffToEvent = async(req,res)=>{
 const removeStaffFromEvent = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_event: z.z.number().int().min(1),
-            ID_staff: z.z.number().int().min(1), 
+            ID_event: z.number().int().min(1),
+            ID_staff: z.number().int().min(1), 
         });
 
-        const result = StaffSchema.safeParse({ID_event:req.params.ID_event,ID_staff:params.ID_staff});
+        const result = StaffSchema.safeParse({ID_event:Number(req.params.ID_event),ID_staff:Number(params.ID_staff)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });

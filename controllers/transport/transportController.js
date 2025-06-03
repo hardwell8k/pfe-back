@@ -128,10 +128,10 @@ const getAllTransports = async(req,res)=>{
 const getEventtransport = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-            ID: z.z.number().int().min(1),
+            ID: z.number().int().min(1),
         });
 
-        const result = equipmentSchema.safeParse({ID:req.params.ID});
+        const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -166,8 +166,8 @@ const getEventtransport = async(req,res)=>{
 const addStaffToTransport = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_transport: z.z.number().int().min(1),
-            ID_staff: z.z.number().int().min(1),
+            ID_transport: z.number().int().min(1),
+            ID_staff: z.number().int().min(1),
             
         });
 
@@ -207,11 +207,11 @@ const addStaffToTransport = async(req,res)=>{
 const removeStaffFromTransport = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_transport: z.z.number().int().min(1),
-            ID_staff: z.z.number().int().min(1), 
+            ID_transport: z.number().int().min(1),
+            ID_staff: z.number().int().min(1), 
         });
 
-        const result = StaffSchema.safeParse({ID_transport:req.params.ID_transport,ID_staff:params.ID_staff});
+        const result = StaffSchema.safeParse({ID_transport:Number(req.params.ID_transport),ID_staff:Number(params.ID_staff)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -247,8 +247,8 @@ const removeStaffFromTransport = async(req,res)=>{
 const addCarToTransport = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_transport: z.z.number().int().min(1),
-            ID_car: z.z.number().int().min(1),
+            ID_transport: z.number().int().min(1),
+            ID_car: z.number().int().min(1),
             
         });
 
@@ -291,10 +291,10 @@ const addCarToTransport = async(req,res)=>{
 const removeCarFromTransport = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_transport: z.z.number().int().min(1),
+            ID_transport: z.number().int().min(1),
         });
 
-        const result = StaffSchema.safeParse({ID_transport:req.params.ID_transport});
+        const result = StaffSchema.safeParse({ID_transport:Number(req.params.ID_transport)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
