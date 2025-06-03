@@ -1,7 +1,7 @@
 const express = require('express');
 const {getUPcomingEvents,addEvent, updateEvent, deleteEvent,getEventsHistory,getRestOfEventsHistoryData} = require("../../controllers/event/eventController");
 const {getEventTypes, addEventType} = require("../../controllers/event/eventTypes/eventTypesController");
-const {addPause,updatePause,deletePause,getAllPausesForEvent}= require('../../controllers/event/pause/pauseController')
+const {addPause,updatePause,deletePause,getAllPausesForEvent}= require('../../controllers/event/pause/pauseController');
 
 const router = express.Router();
 router.post("/addEvent",addEvent);

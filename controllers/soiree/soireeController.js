@@ -217,76 +217,39 @@ const getAllSoirees = async(req,res)=>{
 }
 
 const getEventSoiree = async(req,res)=>{
-<<<<<<< HEAD
-    try {
-        const soireeSchema = z.object({
-            ID: z.string().regex(/^\d+$/, { message: "Event ID must be a numeric string" }),
-        });
-
-        const result = soireeSchema.safeParse({ID: req.params.ID});
-=======
     try{
         const equipmentSchema = z.object({
             ID: z.number().int().min(1),
         });
 
         const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
->>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
 
         const {ID} = result.data;
+
         const decoded_token = req.decoded_token;
-        
-        if(!decoded_token) {
-            return res.status(401).json({
-                success: false,
-                message: "Authentication required"
-            });
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = `
-            SELECT 
-                s."ID",
-                s.nom,
-                s.address AS soiree_address,
-                s.date AS soiree_date,
-                s.description AS soiree_description,
-                s.prix AS soiree_price,
-                s.evenement_id,
-                s.max_guests AS soiree_max_guests
-            FROM soire s
-            JOIN evenement e ON s.evenement_id = e."ID"
-            WHERE s.evenement_id = $1
-            AND e.client_id = ANY(
-                SELECT c."ID" 
-                FROM "Clients" c 
-                WHERE c.entreprise_id = (
-                    SELECT a.entreprise_id 
-                    FROM accounts a 
-                    WHERE a."ID" = $2
-                )
-            )
-        `;
-        const values = [ID, decoded_token.id];
+        const query = `SELECT so."ID",so.address AS soiree_address , so.date AS soiree_date , so.description AS soiree_description, so.prix AS soiree_price,so.nom, so.max_guests AS soiree_max_guests,so.evenement_id
+                        FROM soire so
+                        JOIN evenement ev ON so.evenement_id = ev."ID"
+                        WHERE so.evenement_id = $1
+                        AND ev.client_id = ANY(SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))`;
+        const values = [ID,decoded_token.id]; 
 
-        const data = await pool.query(query, values);
-        console.log("Query result:", data.rows);
-
-        return res.status(200).json({
-            success: true,
-            message: "Event soiree fetched successfully",
-            data: data.rows
-        });
-    } catch (error) {
-        console.error("Error while fetching event soiree:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Error while fetching event soiree",
-            err: error.message
-        });
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
     }
 }
 

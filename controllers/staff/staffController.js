@@ -1,80 +1,42 @@
 const pool = require("../../dbConnection");
 const {z} = require("zod");
 
-const addStaff = async (req, res) => {
+const addStaff = async (req,res)=>{
     try {
         const staffSchema = z.object({
             nom: z.string().trim().min(1, { message: "Nom is required" }),
-            prenom: z.string().min(1, { message: "Last name is required" }).optional(),
+            prenom: z.string().min(1, { message: "last name is required" }).optional(),
             role: z.string().min(1, { message: "Role is required" }),
-            departement: z.string().min(1, { message: "Department is required" }).optional(),
+            departement: z.string().min(1, { message: "department is required" }).optional(),
             num_tel: z.number().int().optional(),
             email: z.string().email({ message: "Invalid email format" }).optional(),
             team_id: z.number().int().optional(),
-            agence_id: z.number().int().min(1, { message: "Agency ID is required" }),
-            available: z.boolean().optional().default(false)
         });
 
         const result = staffSchema.safeParse(req.body);
 
         if (!result.success) {
-            console.log("Validation error:", result.error.errors);
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const decoded_token = req.decoded_token;
-        if (!decoded_token) {
-            console.log("No token found");
-            return res.status(401).json({ success: false, message: "Authentication required" });
+        const decoded_token = req.decoded_token
+        const {nom,prenom,num_tel,email,departement,role,team_id} = req.body;
+
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const { nom, prenom, num_tel, email, departement, role, team_id, agence_id, available } = req.body;
-        console.log("Received staff data:", req.body);
+        const query = 'INSERT INTO staff (nom,prenom,num_tel,email,departement,role,team_id,entreprise_id) VALUES ($1,$2,$3,$4,$5,$6,$7,(SELECT entreprise_id FROM accounts WHERE "ID" = $8)) RETURNING "ID"';
+        const values = [nom,prenom,num_tel,email,departement,role,team_id,decoded_token.id];
 
-        // First verify that the agence exists
-        const agenceCheckQuery = 'SELECT "ID" FROM agence WHERE "ID" = $1';
-        const agenceCheck = await pool.query(agenceCheckQuery, [agence_id]);
-        
-        if (agenceCheck.rowCount === 0) {
-            console.log("Agency not found:", agence_id);
-            return res.status(404).json({ 
-                success: false, 
-                message: "Specified agency does not exist" 
-            });
+        const data = await pool.query(query,values);
+        if(data.rowCount === 0){
+            return res.status(200).json({success : true, message: "no staff was added"});
         }
 
-        const query = `
-            INSERT INTO staff (
-                nom, prenom, num_tel, email, departement, role, team_id, 
-                entreprise_id, agence_id, available
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, 
-                (SELECT entreprise_id FROM accounts WHERE "ID" = $8), $9, $10
-            ) RETURNING "ID", nom, prenom, role, departement, num_tel, email, team_id, agence_id, available
-        `;
-        
-        const values = [
-            nom, prenom, num_tel, email, departement, role, team_id,
-            decoded_token.id, agence_id, available ?? false
-        ];
-        console.log("Query:", query);
-        console.log("Values:", values);
-
-        const data = await pool.query(query, values);
-        console.log("Insert result:", data.rows[0]);
-
-        if (data.rowCount === 0) {
-            return res.status(400).json({ success: false, message: "Failed to add staff" });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Staff added successfully",
-            data: data.rows[0]
-        });
+        return res.status(200).json({success : true, message: "staff added with success",ID:data.rows[0].ID});
     } catch (error) {
-        console.error("Error adding staff:", error);
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({success:false,message:error.message});
     }
 }
 
@@ -263,16 +225,15 @@ const addStaffWithAgence = async (req, res) => {
 const updateStaff = async (req,res)=>{
     try {
         const staffSchema = z.object({
-            ID: z.number().int().min(1),
             nom: z.string().trim().min(1, { message: "Nom is required" }).optional(),
-            prenom: z.string().min(1, { message: "Last name is required" }).optional(),
-            role: z.string().min(1, { message: "Role is required" }).optional(),
-            departement: z.string().min(1, { message: "Department is required" }).optional(),
+            prenom: z.string().min(1, { message: "Address is required" }).optional(),
+            role: z.string().min(1, { message: "Address is required" }).optional(),
+            departement: z.string().min(1, { message: "Address is required" }).optional(),
             num_tel: z.number().int().optional(),
             email: z.string().email({ message: "Invalid email format" }).optional(),
             team_id: z.number().int().optional(),
-            agence_id: z.number().int().min(1, { message: "Agency ID is required" }).optional(),
-            available: z.boolean().optional()
+            team: z.string().min(1).optional(),
+            ID: z.number().int(),
         });
 
         const result = staffSchema.safeParse(req.body);
@@ -281,49 +242,49 @@ const updateStaff = async (req,res)=>{
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {ID, nom, prenom, num_tel, email, departement, role, team_id, agence_id, available} = result.data;
+        const {nom,prenom,num_tel,email,departement,role,team,ID} = result.data;
 
-        if(!ID || [nom, prenom, num_tel, email, departement, role, team_id, agence_id, available].every(value => value === undefined)){
-            return res.status(400).json({success: false, message: "No fields to update"});
+        if(!ID||[nom,prenom,num_tel,email,departement,role,team].every((value)=>(value===undefined))){
+            return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const data = {nom, prenom, num_tel, email, departement, role, team_id, agence_id, available};
-        const filteredData = Object.fromEntries(
-            Object.entries(data).filter(([_, value]) => value !== undefined && value !== null && value !== "")
-        );
+        //need to check for predetermened team names
 
-        if (Object.keys(filteredData).length === 0) {
-            return res.status(400).json({success: false, message: "No valid fields to update"});
+        
+        const data = {nom,prenom,num_tel,email,departement,role}
+
+        const FilteredBody = Object.fromEntries(Object.entries(data).filter(([key,value])=>(value!==undefined&&value!==null&&value!=="")));
+
+        const columns = Object.keys(FilteredBody);
+        const values = Object.values(FilteredBody);
+
+
+        let columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
+        if(team){
+            const teamParamIndex = values.length + 1;
+            values.push(team)
+            columnsString = `${columnsString},team_id = (SELECT "ID" FROM team WHERE team.nom = $${teamParamIndex})`;
         }
 
-        const columns = Object.keys(filteredData);
-        const values = Object.values(filteredData);
+        const idParamIndex = values.length + 1
         values.push(ID);
 
-        const columnsString = columns.map((column, index) => `${column} = $${index + 1}`).join(', ');
-        const query = `UPDATE staff SET ${columnsString} WHERE "ID" = $${values.length} RETURNING *`;
+        const query = `UPDATE staff SET ${columnsString} WHERE "ID"=$${idParamIndex} `;
 
-        const updateResult = await pool.query(query, values);
         
-        if (updateResult.rowCount === 0) {
-            return res.status(404).json({success: false, message: "Staff not found"});
-        }
 
-        return res.status(200).json({
-            success: true, 
-            message: "Staff updated successfully",
-            data: updateResult.rows[0]
-        });
+        await pool.query(query,values);
+
+        return res.status(200).json({success : true, message: "staff updated with success"});
     } catch (error) {
-        console.error("Error updating staff:", error);
-        return res.status(500).json({success: false, message: error.message});
+        return res.status(500).json({success:false,message:error.message});
     }
 }
 
 const deleteStaff = async(req,res)=>{
     try {
         const staffSchema = z.object({
-            ID: z.number().int().min(1)
+            ID: z.number().int().min(1),
         });
 
         const result = staffSchema.safeParse(req.body);
@@ -334,23 +295,13 @@ const deleteStaff = async(req,res)=>{
 
         const {ID} = req.body;
 
-        const query = 'DELETE FROM staff WHERE "ID" = $1 RETURNING *';
+        const query = 'DELETE FROM staff WHERE "ID"=$1';
         const values = [ID];
 
-        const deleteResult = await pool.query(query, values);
-        
-        if (deleteResult.rowCount === 0) {
-            return res.status(404).json({success: false, message: "Staff not found"});
-        }
-
-        return res.status(200).json({
-            success: true, 
-            message: "Staff deleted successfully",
-            deletedStaff: deleteResult.rows[0]
-        });
+        await pool.query(query,values);
+        return res.status(200).json({success: true, message : "staff deleted with success"});
     } catch (error) {
-        console.error("Error deleting staff:", error);
-        return res.status(500).json({success: false, message: error.message});
+        return res.status(500).json({success:false,message:error.message});
     }
 }
 
@@ -363,18 +314,7 @@ const getAllStaff = async (req,res)=>{
         }
 
         const query = `
-            SELECT 
-                s."ID",
-                s.nom,
-                s.prenom,
-                s.email,
-                s.departement,
-                s.num_tel,
-                s.role,
-                s.available,
-                s.agence_id,
-                t.nom AS team_nom,
-                a.nom AS agence_nom
+            SELECT s."ID",s.nom,s.prenom,s.email,s.departement,s.num_tel,s.role,s.onleave,s.agence_id,t.nom AS team_nom,a.nom AS agence_nom
             FROM staff s
             LEFT JOIN team t ON s.team_id = t."ID"
             LEFT JOIN agence a ON s.agence_id = a."ID"
@@ -479,11 +419,7 @@ const getEventStaff = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-<<<<<<< HEAD
-        const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.available, 
-=======
         const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.onleave 
->>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
                         FROM staff st
                         JOIN "Liste_staff" ls ON ls.staff_id = st."ID" 
                         LEFT JOIN team te ON st.team_id = te."ID"
@@ -554,16 +490,9 @@ const getAvailabeEventStaff = async(req,res)=>{
 
 const addStaffToEvent = async(req,res)=>{
     try{
-<<<<<<< HEAD
         const staffSchema = z.object({
             staff_id: z.number().int().min(1, { message: "Staff ID is required" }),
             evenement_id: z.number().int().min(1, { message: "Event ID is required" })
-=======
-        const StaffSchema = z.object({
-            ID_event: z.number().int().min(1),
-            ID_staff: z.number().int().min(1),
-            
->>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
         });
 
         const result = staffSchema.safeParse(req.body);
