@@ -212,8 +212,66 @@ const getRestOfEventsHistoryData = async(req,res)=>{
     }
 }
 
+const getUPcomingEventsPageData = async (req,res)=>{
+    try{
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const today = dayjs().toISOString();
+        //return res.status(300).json({success:false,message:"fuck dates ",today:today})
+
+        const query = `SELECT e.nom AS name,e.description AS description , COUNT(DISTINCT at."ID") AS workshops, COUNT(DISTINCT ei."invite_id") AS participants , (e.date_debut::date - CURRENT_DATE) AS daysLeft
+                        FROM evenement e 
+                        LEFT JOIN atelier at ON at.evenement_id = e."ID"
+                        LEFT JOIN evenement_invite ei ON ei.evenement_id = e."ID" 
+                        WHERE date_debut > ($1) 
+                        AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) 
+                        GROUP BY e."ID"
+                        ORDER BY date_debut`;
+        const values = [today,decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+const getFirstPageData = async (req,res)=>{
+    try{
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
+
+        const today = dayjs().toISOString();
+        //return res.status(300).json({success:false,message:"fuck dates ",today:today})
+
+        const query = `SELECT COUNT(DISTINCT at."ID") AS workshops, COUNT(DISTINCT ei.invite_id) AS participants , COUNT(DISTINCT e."ID") AS events
+                        FROM evenement e 
+                        LEFT JOIN atelier at ON at.evenement_id = e."ID"
+                        LEFT JOIN evenement_invite ei ON ei.evenement_id = e."ID" 
+                        WHERE TO_CHAR(e.date_debut, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM') 
+                        AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) 
+                        ORDER BY date_debut`;
+        const values = [decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
 
 
-
-
-module.exports = {addEvent,updateEvent,deleteEvent,getUPcomingEvents,getEventsHistory,getRestOfEventsHistoryData};
+module.exports = {addEvent,updateEvent,deleteEvent,getUPcomingEvents,getEventsHistory,getRestOfEventsHistoryData,getUPcomingEventsPageData,getFirstPageData};
