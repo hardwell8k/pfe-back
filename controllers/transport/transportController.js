@@ -148,7 +148,7 @@ const getEventtransport = async(req,res)=>{
                         FROM transport t
                         JOIN evenement ev ON t.evenement_id = ev."ID"
                         LEFT JOIN car c ON t.car_id = c."ID" 
-                        WHERE ev."ID = $1
+                        WHERE ev."ID" = $1
                         AND ev.client_id = ANY(SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))`;
         const values = [ID,decoded_token.id]; 
 

@@ -228,7 +228,7 @@ const getEventStaff = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.onleave, 
+        const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.onleave 
                         FROM staff st
                         JOIN "Liste_staff" ls ON ls.staff_id = st."ID" 
                         LEFT JOIN team te ON st.team_id = te."ID"

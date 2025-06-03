@@ -431,8 +431,7 @@ const getEventEquipment = async(req,res)=>{
                         LEFT JOIN sub_category sc ON eq.sub_category_id = sc."ID"
                         WHERE le.evenement_id = $1
                         AND eq.entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2) 
-                        GROUP BY eq.nom,eq.details
-                        ORDER BY date_debut`;
+                        GROUP BY eq.nom,eq.details,eq.type,ca.nom,sc.nom`;
         const values = [ID,decoded_token.id]; 
 
         const data = await pool.query(query,values);
