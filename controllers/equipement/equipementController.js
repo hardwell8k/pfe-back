@@ -113,7 +113,7 @@ const getAllEquipment = async(req,res)=>{
                         FROM equipement e
                         LEFT JOIN sub_category s ON e.sub_category_id = s."ID"
                         LEFT JOIN category c ON e.category_id = c."ID"
-                        LEFT JOIN agence_de_location ag ON e.agence_id = ag."ID"
+                        LEFT JOIN agence ag ON e.agence_id = ag."ID"
                         LEFT JOIN "Liste_equipement" le ON e."ID" = le.equipement_id AND NOT $1 BETWEEN le.date_debut AND le.date_fin
                         WHERE e.entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID" = $2)`;
 
