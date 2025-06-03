@@ -120,7 +120,11 @@ const getAllPausesForEvent = async(req,res)=>{
             evenement_id: z.string().regex(/^\d+$/, { message: "Event ID must be a numeric string" }),
         });
 
+<<<<<<< HEAD
         const result = pauseSchema.safeParse({evenement_id: eventId});
+=======
+        const result = pauseSchema.safeParse({evenement_id:Number(req.params.ID)});
+>>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -129,10 +133,15 @@ const getAllPausesForEvent = async(req,res)=>{
         console.log("Event ID after validation:", eventId);
         console.log("Event ID type:", typeof eventId);
 
+<<<<<<< HEAD
         const query = 'SELECT "ID", name, start_time, end_time, price_per_person, description, evenement_id FROM pause WHERE evenement_id = $1';
         const values = [eventId];
         console.log("Query:", query);
         console.log("Values:", values);
+=======
+        const query = 'SELECT * FROM pause WHERE evenement_id = $1';
+        const values = [evenement_id];
+>>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
 
         const data = await pool.query(query,values);
         console.log("Query result structure:", data.rows.map(row => ({

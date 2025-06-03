@@ -20,6 +20,7 @@ const carRoutes = require('./routes/transport/car/carRoutes');
 const transportRoutes = require('./routes/transport/transportRoutes');
 const instructorRoutes = require('./routes/instructor/instructorRoutes');
 const QARoutes = require('./routes/workshop/QA/QARoutes');
+const prestataireRoutes = require('./routes/prestataire/prestataireRoutes');
 
 const authMiddleware = require('./middlewares/authMiddleware');
 
@@ -51,5 +52,6 @@ app.use('/api',authMiddleware,carRoutes);
 app.use('/api',authMiddleware,transportRoutes);
 app.use('/api',authMiddleware,instructorRoutes);
 app.use('/api',authMiddleware,QARoutes);
+app.use('/api',authMiddleware,prestataireRoutes);
 
 module.exports = app ; 

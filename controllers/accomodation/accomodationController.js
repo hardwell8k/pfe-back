@@ -52,7 +52,7 @@ const updateAccomodation = async(req,res)=>{
         const AccomodationSchema = z.object({
             nom: z.string().trim().min(1, { message: "Nom is required" }).optional(),
             address: z.string().min(1, { message: "Address is required" }).optional(),
-            type: z.enum(['male', 'female', 'non-binary', 'other'], {message: "Type must be one of the following: 'single', 'double', 'suite'",}).optional(),
+            type:  z.enum(['single', 'double', 'suite'], {message: "Type must be one of the following: 'single', 'double', 'suite'",}).optional(),
             description: z.string().min(1, { message: "Description is required" }).optional(),
             prix: z.number().min(0, { message: "Prix must be a valid number and greater than or equal to 0" }).optional(),
             date_debut: z.string().refine(val => !isNaN(new Date(val).getTime()), {
@@ -127,7 +127,9 @@ const getAllAccomodations = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = 'SELECT "ID",nom,type,number,address,date_debut,date_fin,description,prix FROM accomodation WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)))';
+        const query = `SELECT "ID",nom,type,number,address,date_debut,date_fin,description,prix 
+                        FROM accomodation 
+                        WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id = (SELECT entreprise_id FROM accounts WHERE "ID" = $1)))`;
         const values = [decoded_token.id];
 
         const data = await pool.query(query,values);
@@ -143,11 +145,11 @@ const getAllAccomodations = async(req,res)=>{
 const getEventAccomodation = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-            ID: z.string().min(1, { message: "Event ID is required" }),
+
+            ID: z.number().int().min(1),
         });
 
-        const result = equipmentSchema.safeParse({ID: req.params.ID});
-
+        const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
@@ -159,6 +161,7 @@ const getEventAccomodation = async(req,res)=>{
         if(!decoded_token){
             return res.status(401).json({success:false, message:"Authentication required"});
         }
+
 
         const query = `SELECT ac."ID", ac.nom AS accomodation_name, ac.address, ac.prix AS accomodation_price, 
                       ac.date_debut, ac.date_fin, ac.description, ac.type AS accomodation_type, ac.number
@@ -172,6 +175,7 @@ const getEventAccomodation = async(req,res)=>{
                           )
                       )`;
         const values = [ID, decoded_token.id]; 
+
 
         const data = await pool.query(query, values);
         console.log("Query result:", data.rows);

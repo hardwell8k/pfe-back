@@ -135,7 +135,7 @@ const getUPcomingEvents = async (req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const today = dayjs().format('YYYY-MM-DDTHH:mm:ss');
+        const today = dayjs().toISOString();
         //return res.status(300).json({success:false,message:"fuck dates ",today:today})
 
         const query = 'SELECT * FROM evenement WHERE date_debut > ($1) AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) ORDER BY date_debut';
@@ -179,10 +179,10 @@ const getEventsHistory = async(req,res)=>{
 const getRestOfEventsHistoryData = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-            ID: z.z.number().int().min(1),
+            ID: z.number().int().min(1),
         });
 
-        const result = equipmentSchema.safeParse({ID:req.params.ID});
+        const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });

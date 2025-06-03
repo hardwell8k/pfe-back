@@ -463,10 +463,10 @@ const getStaffEvents = async (req,res)=>{
 const getEventStaff = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID: z.z.number().int().min(1),
+            ID: z.number().int().min(1),
         });
 
-        const result = StaffSchema.safeParse({ID:req.params.ID});
+        const result = StaffSchema.safeParse({ID:Number(req.params.ID)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
@@ -479,7 +479,11 @@ const getEventStaff = async(req,res)=>{
             return res.status(400).json({success:false,message:"missing data"});
         }
 
+<<<<<<< HEAD
         const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.available, 
+=======
+        const query = `SELECT st.nom AS staff_name, st.prenom AS staff_lastname , st.num_tel , st.email, st.departement, st.role, st.onleave 
+>>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
                         FROM staff st
                         JOIN "Liste_staff" ls ON ls.staff_id = st."ID" 
                         LEFT JOIN team te ON st.team_id = te."ID"
@@ -550,9 +554,16 @@ const getAvailabeEventStaff = async(req,res)=>{
 
 const addStaffToEvent = async(req,res)=>{
     try{
+<<<<<<< HEAD
         const staffSchema = z.object({
             staff_id: z.number().int().min(1, { message: "Staff ID is required" }),
             evenement_id: z.number().int().min(1, { message: "Event ID is required" })
+=======
+        const StaffSchema = z.object({
+            ID_event: z.number().int().min(1),
+            ID_staff: z.number().int().min(1),
+            
+>>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
         });
 
         const result = staffSchema.safeParse(req.body);
@@ -658,11 +669,11 @@ const addStaffToEvent = async(req,res)=>{
 const removeStaffFromEvent = async(req,res)=>{
     try{
         const StaffSchema = z.object({
-            ID_event: z.z.number().int().min(1),
-            ID_staff: z.z.number().int().min(1), 
+            ID_event: z.number().int().min(1),
+            ID_staff: z.number().int().min(1), 
         });
 
-        const result = StaffSchema.safeParse({ID_event:req.params.ID_event,ID_staff:params.ID_staff});
+        const result = StaffSchema.safeParse({ID_event:Number(req.params.ID_event),ID_staff:Number(params.ID_staff)});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });

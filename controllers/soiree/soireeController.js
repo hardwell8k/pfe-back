@@ -217,12 +217,21 @@ const getAllSoirees = async(req,res)=>{
 }
 
 const getEventSoiree = async(req,res)=>{
+<<<<<<< HEAD
     try {
         const soireeSchema = z.object({
             ID: z.string().regex(/^\d+$/, { message: "Event ID must be a numeric string" }),
         });
 
         const result = soireeSchema.safeParse({ID: req.params.ID});
+=======
+    try{
+        const equipmentSchema = z.object({
+            ID: z.number().int().min(1),
+        });
+
+        const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
+>>>>>>> d7b76794ca2a7142804c65e7ac124ec1ae892bbb
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
