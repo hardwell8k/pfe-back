@@ -78,52 +78,89 @@ const updatePause = async(req,res)=>{
 
 const deletePause = async(req,res)=>{
     try{
-        const transportSchema = z.object({
-            ID: z.number().int(),          
+        const pauseSchema = z.object({
+            ID: z.string().regex(/^\d+$/, { message: "Pause ID must be a numeric string" }),          
         });
 
-        const result = transportSchema.safeParse(req.body);
+        const result = pauseSchema.safeParse(req.body);
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
 
-        const {ID} = req.body;
+        const { ID } = req.body;
+        console.log("Pause ID from body:", ID);
+        console.log("Pause ID type:", typeof ID);
 
-        const query = 'DELETE FROM pause where "ID"=$1';
+        const query = 'DELETE FROM pause WHERE "ID" = $1 RETURNING *';
         const values = [ID];
+        console.log("Query:", query);
+        console.log("Values:", values);
 
-        await pool.query(query,values);
-        return res.status(200).json({success:true , message:"break deleted with success"});
+        const data = await pool.query(query, values);
+        console.log("Delete result:", data.rows);
+
+        if (data.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "No pause found with the provided ID" });
+        }
+
+        return res.status(200).json({ success: true, message: "Break deleted successfully", deletedPause: data.rows[0] });
     }catch(error){
-        console.error("error while deleting the events",error);
-        res.status(500).json({success:false,message:"error while deleting the break",err:error.message});
+        console.error("Error while deleting pause:", error);
+        res.status(500).json({ success: false, message: "Error while deleting the break", err: error.message });
     }
 }
 
 const getAllPausesForEvent = async(req,res)=>{
     try{
+        const eventId = req.params.ID;
+        console.log("Raw Event ID from params:", eventId);
 
         const pauseSchema = z.object({
-            evenement_id: z.number().int(),
+            evenement_id: z.string().regex(/^\d+$/, { message: "Event ID must be a numeric string" }),
         });
 
-        const result = pauseSchema.safeParse({evenement_id:req.params.ID});
+        const result = pauseSchema.safeParse({evenement_id: eventId});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
         
-        const {evenement_id} = req.body;
+        console.log("Event ID after validation:", eventId);
+        console.log("Event ID type:", typeof eventId);
 
-        const query = 'SELECT * FROM pause t WHERE evenement_id = $1';
-        const values = [evenement_id];
+        const query = 'SELECT "ID", name, start_time, end_time, price_per_person, description, evenement_id FROM pause WHERE evenement_id = $1';
+        const values = [eventId];
+        console.log("Query:", query);
+        console.log("Values:", values);
 
         const data = await pool.query(query,values);
-        return res.status(200).json({success:true , message:"break fetched with success",data:data.rows});
+        console.log("Query result structure:", data.rows.map(row => ({
+            id: row.ID,
+            name: row.name,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            price_per_person: row.price_per_person,
+            description: row.description,
+            evenement_id: row.evenement_id
+        })));
+        
+        return res.status(200).json({
+            success: true, 
+            message: "breaks fetched successfully",
+            data: data.rows.map(row => ({
+                id: row.ID,
+                name: row.name,
+                start_time: row.start_time,
+                end_time: row.end_time,
+                price_per_person: row.price_per_person,
+                description: row.description,
+                evenement_id: row.evenement_id
+            }))
+        });
     }catch(error){
-        console.error("error while deleting the events",error);
-        res.status(500).json({success:false,message:"error while fetching the break",err:error.message});
+        console.error("Error while fetching pauses:", error);
+        res.status(500).json({success:false, message:"Error while fetching pauses", err:error.message});
     }
 }
 

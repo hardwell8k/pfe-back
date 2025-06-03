@@ -8,10 +8,11 @@ const addSoiree = async(req,res)=>{
             address: z.string().min(1, { message: "Address is required" }),
             prix: z.number(),
             date: z.string().refine(val => !isNaN(new Date(val).getTime()), {
-                message: "Invalid start date format"
+                message: "Invalid date format"
             }),
-            description: z.string().min().optional(),
+            description: z.string().min(1, { message: "Description is required" }),
             evenement_id: z.number().int(),
+            max_guests: z.number().int().min(1, { message: "Max guests must be at least 1" }).optional(),
         });
 
         const result = soireeSchema.safeParse(req.body);
@@ -19,59 +20,107 @@ const addSoiree = async(req,res)=>{
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-        const {nom,address,date,prix,evenement_id,description} = req.body;
+
+        const {nom, address, date, prix, evenement_id, description, max_guests = 100} = req.body;
+        console.log("Received max_guests:", max_guests);
         
+        const query = 'INSERT INTO soire (nom, address, date, description, prix, evenement_id, max_guests) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *';
+        const values = [nom, address, date, description, prix, evenement_id, max_guests];
 
-        //date validation
+        const data = await pool.query(query, values);
+        console.log("Insert result:", data.rows[0]);
 
-        const query = 'INSERT INTO soire (nom,address,date,description,prix,evenement_id) VALUES ($1,$2,$3,$4,$5,$6,$7)';
-        const values = [nom,address,date,description,prix,evenement_id];
-
-        await pool.query(query,values);
-
-        return res.status(200).json({success : true, message: "soiree added with success"});
+        return res.status(200).json({
+            success: true, 
+            message: "Soiree added successfully",
+            data: data.rows[0]
+        });
     } catch (error) {
-        return res.status(500).json({success:false,message:error.message});
+        console.error("Error while adding soiree:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error while adding the soiree",
+            err: error.message
+        });
     }
 }
 
 const updateSoiree = async(req,res)=>{
     try {
-        const {ID,nom,address,date,description,prix} = req.body;
-        if(!ID||([nom,address,date,description,prix].every((value)=>(value===undefined||value==="")))){
-            return res.status(400).json({success:false,message:"missing data"});
+        const soireeSchema = z.object({
+            ID: z.string().regex(/^\d+$/, { message: "Soiree ID must be a numeric string" }),
+            nom: z.string().trim().min(1, { message: "Nom is required" }).optional(),
+            address: z.string().min(1, { message: "Address is required" }).optional(),
+            date: z.string().refine(val => !isNaN(new Date(val).getTime()), {
+                message: "Invalid date format"
+            }).optional(),
+            description: z.string().min(1, { message: "Description is required" }).optional(),
+            prix: z.number().optional(),
+        });
+
+        const result = soireeSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
         }
 
-        //date validation
-
-        if(prix&&Number.isNaN(Number(prix))){
-            return res.status(401).json({success:false,message:"prix doit etre un nombre"});
+        const {ID, nom, address, date, description, prix} = req.body;
+        
+        if(!nom && !address && !date && !description && !prix) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "At least one field must be provided for update" 
+            });
         }
 
-        const data = {nom,address,date,description,prix}
+        const data = {nom, address, date, description, prix};
+        const filteredData = Object.fromEntries(
+            Object.entries(data).filter(([_, value]) => value !== undefined && value !== null && value !== "")
+        );
 
-        const FilteredBody = Object.fromEntries(Object.entries(data).filter(([key,value])=>(value!==undefined&&value!==null&&value!=="")));
+        if (Object.keys(filteredData).length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "No valid fields to update" 
+            });
+        }
 
-        const columns = Object.keys(FilteredBody);
-        const values = Object.values(FilteredBody);
-
+        const columns = Object.keys(filteredData);
+        const values = Object.values(filteredData);
         values.push(ID);
 
-        const columnsString = (columns.map((column,index)=>`${column}=$${index+1}`)).join(',');
-        const query = `UPDATE soire SET ${columnsString} WHERE "ID"=$${columns.length+1} `;
+        const columnsString = columns.map((column, index) => `${column} = $${index + 1}`).join(', ');
+        const query = `UPDATE soire SET ${columnsString} WHERE "ID" = $${columns.length + 1} RETURNING *`;
 
-        await pool.query(query,values);
+        const queryResult = await pool.query(query, values);
+        console.log("Update result:", queryResult.rows[0]);
 
-        return res.status(200).json({success:true , message:"soiree updated with success"});
+        if (queryResult.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "No soiree found with the provided ID" 
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Soiree updated successfully",
+            data: queryResult.rows[0]
+        });
     } catch (error) {
-        return res.status(500).json({success:false,message:error.message});
+        console.error("Error while updating soiree:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error while updating the soiree",
+            err: error.message
+        });
     }
 }
 
 const deleteSoiree = async(req,res)=>{
     try {
         const soireeSchema = z.object({
-            ID: z.number().int(),
+            ID: z.string().regex(/^\d+$/, { message: "Soiree ID must be a numeric string" }),
         });
 
         const result = soireeSchema.safeParse(req.body);
@@ -79,75 +128,157 @@ const deleteSoiree = async(req,res)=>{
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-        const {ID} = req.body;
 
-        const query = 'DELETE FROM soire WHERE "ID"=$1';
+        const {ID} = req.body;
+        console.log("Soiree ID for deletion:", ID);
+
+        const query = 'DELETE FROM soire WHERE "ID" = $1 RETURNING *';
         const values = [ID];
 
-        await pool.query(query,values);
+        const data = await pool.query(query, values);
+        console.log("Delete result:", data.rows);
 
-        return res.status(200).json({success : true, message: "soiree deleted with success"});
+        if (data.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "No soiree found with the provided ID" 
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Soiree deleted successfully",
+            deletedSoiree: data.rows[0]
+        });
     } catch (error) {
-        return res.status(500).json({success:false,message:error.message});
+        console.error("Error while deleting soiree:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error while deleting the soiree",
+            err: error.message
+        });
     }
 }
 
 const getAllSoirees = async(req,res)=>{
     try {
         const decoded_token = req.decoded_token;
-        if(!decoded_token){
-            return res.status(400).json({success:false,message:"missing data"});
+        if(!decoded_token) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required"
+            });
         }
 
-        const query = 'SELECT "ID",nom,address,date,description,prix FROM soire WHERE evenement_id IN (SELECT "ID" FROM evenement WHERE client_id IN client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)))';
+        const query = `
+            SELECT 
+                s."ID",
+                s.nom,
+                s.address,
+                s.date,
+                s.description,
+                s.prix,
+                s.evenement_id,
+                s.max_guests
+            FROM soire s
+            WHERE s.evenement_id IN (
+                SELECT e."ID" 
+                FROM evenement e 
+                WHERE e.client_id IN (
+                    SELECT c."ID" 
+                    FROM "Clients" c 
+                    WHERE c.entreprise_id = (
+                        SELECT a.entreprise_id 
+                        FROM accounts a 
+                        WHERE a."ID" = $1
+                    )
+                )
+            )
+        `;
         const values = [decoded_token.id];
 
-        const data = await pool.query(query,values);
-        if(!data){
-            return res.status(400).json({"success":false , message:"failure"});
-        }
-        return res.status(200).json({success : true, message: "soiree fectched with success",data:data.rows});
+        const data = await pool.query(query, values);
+        console.log("Query result count:", data.rows.length);
+        console.log("Sample soiree data:", data.rows[0]);
+
+        return res.status(200).json({
+            success: true,
+            message: "Soirees fetched successfully",
+            data: data.rows
+        });
     } catch (error) {
-        return res.status(500).json({success:false,message:error.message});
+        console.error("Error while fetching soirees:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error while fetching soirees",
+            err: error.message
+        });
     }
 }
 
 const getEventSoiree = async(req,res)=>{
-    try{
-        const equipmentSchema = z.object({
-            ID: z.z.number().int().min(1),
+    try {
+        const soireeSchema = z.object({
+            ID: z.string().regex(/^\d+$/, { message: "Event ID must be a numeric string" }),
         });
 
-        const result = equipmentSchema.safeParse({ID:req.params.ID});
+        const result = soireeSchema.safeParse({ID: req.params.ID});
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
 
         const {ID} = result.data;
-
         const decoded_token = req.decoded_token;
-        if(!decoded_token){
-            return res.status(400).json({success:false,message:"missing data"});
+        
+        if(!decoded_token) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required"
+            });
         }
 
-        const query = `SELECT so.address AS soiree_address , so.date AS soiree_date , so.description AS soiree_description, so.prix AS soiree_price
-                        FROM soire so
-                        JOIN evenement ev ON so.evenement_id = ev."ID"
-                        WHERE so.evenement_id = $1
-                        AND ev.client_id = ANY(SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2))`;
-        const values = [ID,decoded_token.id]; 
+        const query = `
+            SELECT 
+                s."ID",
+                s.nom,
+                s.address AS soiree_address,
+                s.date AS soiree_date,
+                s.description AS soiree_description,
+                s.prix AS soiree_price,
+                s.evenement_id,
+                s.max_guests AS soiree_max_guests
+            FROM soire s
+            JOIN evenement e ON s.evenement_id = e."ID"
+            WHERE s.evenement_id = $1
+            AND e.client_id = ANY(
+                SELECT c."ID" 
+                FROM "Clients" c 
+                WHERE c.entreprise_id = (
+                    SELECT a.entreprise_id 
+                    FROM accounts a 
+                    WHERE a."ID" = $2
+                )
+            )
+        `;
+        const values = [ID, decoded_token.id];
 
-        const data = await pool.query(query,values);
-        if(!data){
-            return res.status(400).json({"success":false , message:"failure"});
-        }
-        res.status(200).json({success:true , message:"success",data:data.rows});
-    }catch(error){
-        console.error("error while getting the events",error);
-        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+        const data = await pool.query(query, values);
+        console.log("Query result:", data.rows);
+
+        return res.status(200).json({
+            success: true,
+            message: "Event soiree fetched successfully",
+            data: data.rows
+        });
+    } catch (error) {
+        console.error("Error while fetching event soiree:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error while fetching event soiree",
+            err: error.message
+        });
     }
 }
 
-
-module.exports = {addSoiree,updateSoiree,deleteSoiree,getAllSoirees,getEventSoiree}
+module.exports = {addSoiree, updateSoiree, deleteSoiree, getAllSoirees, getEventSoiree}
