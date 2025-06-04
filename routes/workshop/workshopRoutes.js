@@ -10,7 +10,7 @@ router.put('/updateWorkshop',updateWorkshop);
 
 router.delete('/deleteWorkshop',deleteWorkshop);
 
-router.get('/getAllWorkshops',getAllWorkshops);
+router.post('/getAllWorkshops',getAllWorkshops);
 router.get("/getEventWorkshops/:ID",getEventWorkshops);
 
 

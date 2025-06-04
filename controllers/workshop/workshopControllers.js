@@ -98,10 +98,10 @@ const deleteWorkshop = async(req,res)=>{
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-        const {ID} = req.body;
+        const {id} = req.body;
 
         const query = 'DELETE FROM atelier WHERE "ID"=$1';
-        const values = [ID];
+        const values = [id];
 
         await pool.query(query,values);
 
@@ -124,7 +124,7 @@ const getAllWorkshops = async(req,res)=>{
         }
         const {evenement_id} = req.body;
 
-        const query = 'SELECT nom,nbr_invite,nbr_max_invite,prix,categorie,evenement_id,instructeur_id,temp_debut,temp_fin FROM atelier WHERE evenement_id = $1';
+        const query = 'SELECT "ID", nom, nbr_invite, nbr_max_invite, prix, categorie, evenement_id, instructeur_id, temp_debut, temp_fin FROM atelier WHERE evenement_id = $1';
         const values = [evenement_id];
 
         const data = await pool.query(query,values);
@@ -141,7 +141,7 @@ const getAllWorkshops = async(req,res)=>{
 const getEventWorkshops = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-            ID: z.z.number().int().min(1),
+            ID: z.string().min(1, { message: "Event ID is required" }),
         });
 
         const result = equipmentSchema.safeParse({ID:req.params.ID});
@@ -151,13 +151,14 @@ const getEventWorkshops = async(req,res)=>{
         }
 
         const {ID} = result.data;
+        console.log("Event ID:", ID);
 
         const decoded_token = req.decoded_token;
         if(!decoded_token){
             return res.status(400).json({success:false,message:"missing data"});
         }
 
-        const query = `SELECT a.nom AS workshop_name , a.nbr_invite , a.nbr_max_invite , a.prix , a.categorie AS workshop_category , a.temp_debut , a.temp_fin , i.nom AS instructor_name , i.num_tel AS instructor_number , i.description AS instructor_description
+        const query = `SELECT a."ID" AS workshop_id, a.nom AS workshop_name, a.nbr_invite, a.nbr_max_invite, a.prix, a.categorie AS workshop_category, a.temp_debut, a.temp_fin, i.nom AS instructor_name, i.num_tel AS instructor_number, i.description AS instructor_description
                         FROM atelier a
                         JOIN evenement ev ON a.evenement_id = ev."ID"
                         JOIN instructeur i ON a.instructeur_id = i."ID"

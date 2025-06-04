@@ -10,7 +10,7 @@ const clientRoutes = require('./routes/client/clientRoutes');
 const departmentRoutes = require('./routes/client/department/departmentRoutes');
 const equipmentRoutes = require('./routes/equipement/equipmentRoutes');
 const authRoutes = require('./routes/auth/authRoutes');
-const staffRoutes = require('./routes/staff/staffRoutes');
+const staffRoutes = require('./routes/staffRoutes');
 const teamRoutes = require('./routes/staff/team/teamRoutes');
 const workshopRoutes = require('./routes/workshop/workshopRoutes');
 const soireeRoutes = require('./routes/soiree/soireeRoutes'); 
@@ -33,6 +33,12 @@ app.use(cors({origin: (origin, callback) => {callback(null, true);},credentials:
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparser());
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 app.use('/api',authRoutes);
 
