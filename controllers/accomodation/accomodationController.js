@@ -145,11 +145,11 @@ const getAllAccomodations = async(req,res)=>{
 const getEventAccomodation = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-
-            ID: z.number().int().min(1),
+            ID: z.string().min(1, { message: "Event ID is required" }),
         });
 
-        const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
+        const result = equipmentSchema.safeParse({ID: req.params.ID});
+
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
@@ -161,7 +161,6 @@ const getEventAccomodation = async(req,res)=>{
         if(!decoded_token){
             return res.status(401).json({success:false, message:"Authentication required"});
         }
-
 
         const query = `SELECT ac."ID", ac.nom AS accomodation_name, ac.address, ac.prix AS accomodation_price, 
                       ac.date_debut, ac.date_fin, ac.description, ac.type AS accomodation_type, ac.number
@@ -175,7 +174,6 @@ const getEventAccomodation = async(req,res)=>{
                           )
                       )`;
         const values = [ID, decoded_token.id]; 
-
 
         const data = await pool.query(query, values);
         console.log("Query result:", data.rows);

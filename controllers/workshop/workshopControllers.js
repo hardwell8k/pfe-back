@@ -141,9 +141,7 @@ const getAllWorkshops = async(req,res)=>{
 const getEventWorkshops = async(req,res)=>{
     try{
         const equipmentSchema = z.object({
-
-            ID: z.number().int().min(1),
-
+            ID: z.string().min(1, { message: "Event ID is required" }),
         });
 
         const result = equipmentSchema.safeParse({ID:Number(req.params.ID)});
