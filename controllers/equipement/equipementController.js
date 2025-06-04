@@ -1,7 +1,7 @@
 const pool = require('../../dbConnection');
 
 const {z} = require('zod');
-
+/*
 const addEquipment = async(req,res)=>{
     try {
         const equipmentSchema = z.object({
@@ -23,6 +23,7 @@ const addEquipment = async(req,res)=>{
                 message: "Invalid date format"
             }).optional(),
             quantite: z.number().int(),
+            agence_id: z.number().int().optional(),
         });
 
         const result = equipmentSchema.safeParse(req.body);
@@ -83,7 +84,105 @@ const addEquipment = async(req,res)=>{
     } catch (error) {
         return res.status(500).json({success:false,message:error.message});
     }
-}
+}*/
+
+const addEquipment = async (req, res) => {
+    try {
+        const equipmentSchema = z.object({
+            nom: z.string().trim().min(1, { message: "Nom is required" }),
+            sub_category: z.number().int(),
+            category: z.number().int(),
+            prix: z.number(),
+            type: z.string().min(1, { message: "type is required" }),
+            code_bar: z.string().min(1).optional(),
+            RFID: z.string().min(1).optional(),
+            details: z.string().min(1).optional(),
+            date_achat: z.string().refine(val => !isNaN(new Date(val).getTime()), {
+                message: "Invalid date format"
+            }).optional(),
+            date_location: z.string().refine(val => !isNaN(new Date(val).getTime()), {
+                message: "Invalid date format"
+            }).optional(),
+            date_retour: z.string().refine(val => !isNaN(new Date(val).getTime()), {
+                message: "Invalid date format"
+            }).optional(),
+            quantite: z.number().int(),
+            agence_id: z.number().int().optional(),
+        });
+
+        const result = equipmentSchema.safeParse(req.body);
+
+        if (!result.success) {
+            return res.status(400).json({ errors: result.error.errors });
+        }
+
+        console.log(JSON.stringify(result.data, null, 2));
+
+        const {
+            nom, code_bar, RFID, details,
+            sub_category, category, type,
+            date_achat, date_location, date_retour,
+            quantite, prix, agence_id
+        } = result.data;
+
+        const decoded_token = req.decoded_token;
+
+        if (!decoded_token.id || !decoded_token.role) {
+            return res.status(400).json({ message: "missing data" });
+        }
+
+        if ((type === "loue" && (!date_location || !date_retour || !agence_id)) ||
+            (type === "achete" && !date_achat)) {
+            return res.status(400).json({ message: "missing data" });
+        }
+
+        const acceptedroles = ["super_admin", "admin", "super_user"];
+        if (!acceptedroles.includes(decoded_token.role)) {
+            return res.status(403).json({ success: false, message: "missing privilege" });
+        }
+
+        const values = [];
+        const placeholders = [];
+        let idx = 0;
+
+        for (let i = 0; i < quantite; i++) {
+            placeholders.push(`($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, 
+                                (SELECT entreprise_id FROM accounts WHERE "ID" = $${idx + 6}), 
+                                $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 10}, $${idx + 11}, $${idx + 12}, $${idx + 13})`);
+
+            values.push(
+                nom, code_bar, RFID, details,
+                sub_category, decoded_token.id,
+                category, type, date_achat,
+                date_location, date_retour,
+                prix, agence_id
+            );
+
+            idx += 13;
+        }
+
+        const query = `
+            INSERT INTO equipement (
+                nom, code_bar, "RFID", details, sub_category_id, entreprise_id,
+                category_id, type, date_achat, date_location, date_retour, prix, agence_id
+            ) VALUES ${placeholders.join(", ")};
+        `;
+
+        console.log("placeHolders: ", placeholders);
+        console.log("Values: ", values);
+        console.log("query: ", query);
+
+        const { rowCount } = await pool.query(query, values);
+
+        if (rowCount === 0) {
+            return res.status(400).json({ success: false, message: "failure" });
+        }
+
+        return res.status(200).json({ success: true, message: "equipment added with success" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 const getAllEquipment = async(req,res)=>{
     try {
@@ -109,7 +208,7 @@ const getAllEquipment = async(req,res)=>{
             return res.status(401).json({success:false,message:"missing data"});
         }
 
-        const query = `SELECT e."ID", e.nom, e.code_bar, e."RFID", e.details,e.type, s."ID" AS sub_category_id ,s.nom AS sub_category_name, c."ID" AS category_id ,c.nom AS category_name, e.date_achat AS date, e.date_retour, e.prix, ag.nom AS agence_nom, ag.num_tel AS agence_num_tel, ag.email AS agence_email, ag.address AS agence_address,le."ID" AS le_id,CASE WHEN le."ID" IS NULL THEN TRUE ELSE FALSE END AS disponible
+        const query = `SELECT e."ID",e.agence_id AS agence_id ,e.nom, e.code_bar, e."RFID", e.details,e.type, s."ID" AS sub_category_id ,s.nom AS sub_category_name, c."ID" AS category_id ,c.nom AS category_name, e.date_achat AS date, e.date_retour, e.prix, ag.nom AS agence_nom, ag.num_tel AS agence_num_tel, ag.email AS agence_email, ag.address AS agence_address,le."ID" AS le_id,CASE WHEN le."ID" IS NULL THEN TRUE ELSE FALSE END AS disponible
                         FROM equipement e
                         LEFT JOIN sub_category s ON e.sub_category_id = s."ID"
                         LEFT JOIN category c ON e.category_id = c."ID"

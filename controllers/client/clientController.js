@@ -50,7 +50,7 @@ const deleteClient = async(req,res)=>{
 
         const {IDs} = result.data;
 
-        const query = 'DELETE FROM "Clients" WHERE "ID"= ANY($1)';
+        const query = 'DELETE FROM "Clients" WHERE "ID"= ANY($1::int[])';
         const values = [IDs];
 
         const {rowCount} = await pool.query(query,values);
@@ -61,6 +61,15 @@ const deleteClient = async(req,res)=>{
         
         return res.status(200).json({success : true, message: "clients deleted with success"});
     } catch (error) {
+        if (
+            error?.code === '23503' &&
+            error?.constraint === 'evenement_client_id_fkey'
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot delete client(s) because they are associated with one or more events.',
+            });
+        }
         return res.status(500).json({success:false,message:error.message});
     }
 }

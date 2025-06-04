@@ -37,11 +37,11 @@ const addEvent = async (req,res)=>{
         }
         
 
-        const querry = "INSERT INTO evenement (nom,type,edition,nbr_invite,description,date_debut,date_fin,address,client_id) values($1, $2, $3, $4, $5, $6, $7, $8 ,$9)";
+        const querry = "INSERT INTO evenement (nom,type,edition,nbr_invite,description,date_debut,date_fin,address,client_id) values($1, $2, $3, $4, $5, $6, $7, $8 ,$9) RETURNING *";
         const values = [nom,type,editionVal,nbr_invite, descriptionVal, formatted_date_debut, formatted_date_fin, address,client_id];
 
-        await pool.query(querry,values);
-        return res.status(201).json({success: true, message : "event saved with success"});
+        const result = await pool.query(querry,values);
+        return res.status(201).json({success: true, message : "event saved with success",data: result.rows[0]});
     }catch(error){
         console.error("error while getting the events",error);
         res.status(500).json({success: false , message:"failed to save",err:error.message});
@@ -222,7 +222,7 @@ const getUPcomingEventsPageData = async (req,res)=>{
         const today = dayjs().toISOString();
         //return res.status(300).json({success:false,message:"fuck dates ",today:today})
 
-        const query = `SELECT e.nom AS name,e.description AS description , COUNT(DISTINCT at."ID") AS workshops, COUNT(DISTINCT ei."invite_id") AS participants , (e.date_debut::date - CURRENT_DATE) AS daysLeft
+        const query = `SELECT e."ID", e.nom AS name,e.description AS description , COUNT(DISTINCT at."ID") AS workshops, COUNT(DISTINCT ei."invite_id") AS participants , (e.date_debut::date - CURRENT_DATE) AS daysLeft
                         FROM evenement e 
                         LEFT JOIN atelier at ON at.evenement_id = e."ID"
                         LEFT JOIN evenement_invite ei ON ei.evenement_id = e."ID" 
@@ -258,8 +258,7 @@ const getFirstPageData = async (req,res)=>{
                         LEFT JOIN atelier at ON at.evenement_id = e."ID"
                         LEFT JOIN evenement_invite ei ON ei.evenement_id = e."ID" 
                         WHERE TO_CHAR(e.date_debut, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM') 
-                        AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $2)) 
-                        ORDER BY date_debut`;
+                        AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1)) `;
         const values = [decoded_token.id]; 
 
         const data = await pool.query(query,values);
@@ -273,5 +272,30 @@ const getFirstPageData = async (req,res)=>{
     }
 }
 
+const getUPcomingEventsFirstPage = async (req,res)=>{
+    try{
+        const decoded_token = req.decoded_token;
+        if(!decoded_token){
+            return res.status(400).json({success:false,message:"missing data"});
+        }
 
-module.exports = {addEvent,updateEvent,deleteEvent,getUPcomingEvents,getEventsHistory,getRestOfEventsHistoryData,getUPcomingEventsPageData,getFirstPageData};
+        const query = `SELECT e.nom , e.address , e.description AS description , (e.date_debut - NOW()) AS timeleft
+                        FROM evenement e  
+                        WHERE date_debut > NOW() 
+                        AND client_id IN (SELECT "ID" FROM "Clients" WHERE entreprise_id=(SELECT entreprise_id FROM accounts WHERE "ID" = $1))
+                        ORDER BY date_debut
+                        LIMIT 3`;
+        const values = [decoded_token.id]; 
+
+        const data = await pool.query(query,values);
+        if(!data){
+            return res.status(400).json({"success":false , message:"failure"});
+        }
+        res.status(200).json({success:true , message:"success",data:data.rows});
+    }catch(error){
+        console.error("error while getting the events",error);
+        res.status(500).json({success:false,message:"error while getting the events",err:error.message});
+    }
+}
+
+module.exports = {addEvent,updateEvent,deleteEvent,getUPcomingEvents,getEventsHistory,getRestOfEventsHistoryData,getUPcomingEventsPageData,getFirstPageData,getUPcomingEventsFirstPage};

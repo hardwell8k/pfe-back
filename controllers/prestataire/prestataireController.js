@@ -90,22 +90,22 @@ const updatePrestataire = async (req, res) => {
 const deletePrestataire = async (req, res) => {
     try {
         const prestataireSchema = z.object({
-            ID: z.number().int()
+            IDs: z.array(z.number().int()).nonempty()
         });
 
-        const result = prestataireSchema.safeParse({ID: Number(req.params.ID)});
+        const result = prestataireSchema.safeParse(req.body);
 
         if (!result.success) {
             return res.status(400).json({ errors: result.error.errors });
         }
-        const { ID } = req.body;
+        const { IDs } = req.body;
 
-        const query = 'DELETE FROM agence WHERE "ID"=$1';
-        const values = [ID];
+        const query = 'DELETE FROM agence WHERE "ID" = ANY($1)';
+        const values = [IDs];
 
         const{rowCount} = await pool.query(query, values);
         if(rowCount === 0){
-            return res.status(300).json({success : true, message: "no prestataire was deleted"});
+            return res.status(400).json({success : true, message: "no prestataire was deleted"});
         }
         return res.status(200).json({ success: true, message: "prestataire deleted with success" });
     } catch (error) {

@@ -8,7 +8,7 @@ router.post("/addPrestataire", addPrestataire);
 
 router.put("/updatePrestataire", updatePrestataire);
 
-router.delete("/deletePrestataire/:ID", deletePrestataire);
+router.delete("/deletePrestataire", deletePrestataire);
 
 router.get("/getAllPrestataires", getAllPrestataires);
 
